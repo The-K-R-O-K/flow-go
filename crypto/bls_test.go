@@ -81,13 +81,13 @@ func TestBLSMainMethods(t *testing.T) {
 }
 
 // Signing bench
-func BenchmarkBLSBLS12381Sign(b *testing.B) {
+func BenchmarkBLS_Sign(b *testing.B) {
 	halg := NewExpandMsgXOFKMAC128("bench tag")
 	benchSign(b, BLSBLS12381, halg)
 }
 
 // Verifying bench
-func BenchmarkBLSBLS12381Verify(b *testing.B) {
+func BenchmarkBLS_Verify(b *testing.B) {
 	halg := NewExpandMsgXOFKMAC128("bench tag")
 	benchVerify(b, BLSBLS12381, halg)
 }
@@ -833,7 +833,7 @@ func alterSignature(s Signature) {
 
 // Batch verify bench in the happy (all signatures are valid)
 // and unhappy path (only one signature is invalid)
-func BenchmarkBatchVerify(b *testing.B) {
+func BenchmarkBLS_BatchVerify(b *testing.B) {
 	// random message
 	input := make([]byte, 100)
 	_, err := crand.Read(input)
@@ -1077,7 +1077,7 @@ func TestBLSErrorTypes(t *testing.T) {
 // Bench the slowest case where all messages and public keys are distinct.
 // (2*n) pairings without aggregation Vs (n+1) pairings with aggregation.
 // The function is faster whenever there are redundant messages or public keys.
-func BenchmarkVerifySignatureManyMessages(b *testing.B) {
+func BenchmarkBLS_VerifySignatureManyMessages(b *testing.B) {
 	// inputs
 	sigsNum := 100
 	inputKmacs := make([]hash.Hasher, 0, sigsNum)
@@ -1115,7 +1115,7 @@ func BenchmarkVerifySignatureManyMessages(b *testing.B) {
 }
 
 // Bench of all aggregation functions
-func BenchmarkAggregate(b *testing.B) {
+func BenchmarkBLS_Aggregate(b *testing.B) {
 	seed := make([]byte, KeyGenSeedMinLen)
 	// random message
 	input := make([]byte, 100)

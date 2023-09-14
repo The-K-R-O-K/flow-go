@@ -609,7 +609,7 @@ func testCentralizedStatelessAPI(t *testing.T) {
 	}
 }
 
-func BenchmarkSimpleKeyGen(b *testing.B) {
+func BenchmarkBLS_ThresholdSimpleKeyGen(b *testing.B) {
 	n := 60
 	seed := make([]byte, KeyGenSeedMinLen)
 	_, err := crand.Read(seed)
@@ -621,7 +621,7 @@ func BenchmarkSimpleKeyGen(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSignatureReconstruction(b *testing.B) {
+func BenchmarkBLS_ThresholdSignatureReconstruction(b *testing.B) {
 	n := 60
 	seed := make([]byte, KeyGenSeedMinLen)
 	_, _ = crand.Read(seed)

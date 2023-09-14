@@ -52,7 +52,7 @@ func TestScalarMultBLS12381(t *testing.T) {
 }
 
 // G1 and G2 scalar multiplication
-func BenchmarkScalarMult(b *testing.B) {
+func BenchmarkBLS12381_ScalarMult(b *testing.B) {
 	seed := make([]byte, securityBits/8)
 	_, err := rand.Read(seed)
 	require.NoError(b, err)
@@ -122,7 +122,7 @@ func TestMapToG1(t *testing.T) {
 }
 
 // Hashing to G1 bench
-func BenchmarkMapToG1(b *testing.B) {
+func BenchmarkBLS12381_MapToG1(b *testing.B) {
 	input := make([]byte, expandMsgOutput)
 	for i := 0; i < len(input); i++ {
 		input[i] = byte(i)
@@ -163,7 +163,7 @@ func TestSubgroupCheck(t *testing.T) {
 }
 
 // subgroup membership check bench
-func BenchmarkSubgroupCheck(b *testing.B) {
+func BenchmarkBLS12381_SubgroupCheck(b *testing.B) {
 	seed := make([]byte, g2BytesLen)
 	_, err := rand.Read(seed)
 	require.NoError(b, err)
