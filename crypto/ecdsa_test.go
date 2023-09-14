@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"encoding/hex"
+	"strings"
 	"testing"
 
 	"crypto/elliptic"
@@ -101,27 +102,27 @@ func TestECDSAHasher(t *testing.T) {
 }
 
 // Signing bench
-func BenchmarkECDSAP256Sign(b *testing.B) {
+func BenchmarkECDSA_Sign(b *testing.B) {
 	halg := hash.NewSHA3_256()
-	benchSign(b, ECDSAP256, halg)
+
+	for _, curve := range []SigningAlgorithm{ECDSASecp256k1, ECDSAP256} {
+		curveName, _ := strings.CutPrefix(curve.String(), "ECDSA_")
+		b.Run(curveName, func(b *testing.B) {
+			benchSign(b, curve, halg)
+		})
+	}
 }
 
 // Verifying bench
-func BenchmarkECDSAP256Verify(b *testing.B) {
+func BenchmarkECDSA_Verify(b *testing.B) {
 	halg := hash.NewSHA3_256()
-	benchVerify(b, ECDSAP256, halg)
-}
 
-// Signing bench
-func BenchmarkECDSASecp256k1Sign(b *testing.B) {
-	halg := hash.NewSHA3_256()
-	benchSign(b, ECDSASecp256k1, halg)
-}
-
-// Verifying bench
-func BenchmarkECDSASecp256k1Verify(b *testing.B) {
-	halg := hash.NewSHA3_256()
-	benchVerify(b, ECDSASecp256k1, halg)
+	for _, curve := range []SigningAlgorithm{ECDSASecp256k1, ECDSAP256} {
+		curveName, _ := strings.CutPrefix(curve.String(), "ECDSA_")
+		b.Run(curveName, func(b *testing.B) {
+			benchVerify(b, curve, halg)
+		})
+	}
 }
 
 // TestECDSAEncodeDecode tests encoding and decoding of ECDSA keys
@@ -347,8 +348,7 @@ func TestEllipticUnmarshalSecp256k1(t *testing.T) {
 	}
 }
 
-func BenchmarkECDSADecode(b *testing.B) {
-	// random message
+func BenchmarkECDSA_DecodePublicKey(b *testing.B) {
 	seed := make([]byte, 50)
 	_, _ = crand.Read(seed)
 
@@ -357,7 +357,8 @@ func BenchmarkECDSADecode(b *testing.B) {
 		comp := sk.PublicKey().EncodeCompressed()
 		uncomp := sk.PublicKey().Encode()
 
-		b.Run("compressed point on "+curve.String(), func(b *testing.B) {
+		curveName, _ := strings.CutPrefix(curve.String(), "ECDSA")
+		b.Run("compressed"+curveName, func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := DecodePublicKeyCompressed(curve, comp)
@@ -366,7 +367,7 @@ func BenchmarkECDSADecode(b *testing.B) {
 			b.StopTimer()
 		})
 
-		b.Run("uncompressed point on "+curve.String(), func(b *testing.B) {
+		b.Run("uncompressed"+curveName, func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := DecodePublicKey(curve, uncomp)
