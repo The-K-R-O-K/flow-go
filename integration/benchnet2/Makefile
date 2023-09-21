@@ -45,7 +45,7 @@ gen-bootstrap: clone-flow
 		--protocol-version=0 \
 		--internal-priv-dir ../../../bootstrap/keys/private-root-information \
 		--dkg-data ../../../bootstrap/private-root-information/root-dkg-data.priv.json \
-		--root-block ../../../bootstrap/public-root-information/root-block.json
+		--root-block ../../../bootstrap/public-root-information/root-block.json \
 		--root-block-votes-dir ../../../bootstrap/public-root-information/root-block-votes/
 
 gen-helm-l1:
