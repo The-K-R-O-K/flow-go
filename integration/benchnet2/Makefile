@@ -25,16 +25,38 @@ else ifeq ($(strip $(NAMESPACE)),)
 	$(error NAMESPACE cannot be empty)
 endif
 
+# OS
+UNAME := $(shell uname -s)
+
+# `ADX_SUPPORT` is 1 if ADX instructions are supported and 0 otherwise.
+ifeq ($(UNAME),Linux)
+# detect ADX support on the CURRENT linux machine.
+	ADX_SUPPORT := $(shell if ([ -f "/proc/cpuinfo" ] && grep -q -e '^flags.*\badx\b' /proc/cpuinfo); then echo 1; else echo 0; fi)
+else
+# on non-linux machines, set the flag to 1 by default
+	ADX_SUPPORT := 1
+endif
+
+# the crypto package uses BLST source files underneath which may use ADX insructions.
+ifeq ($(ADX_SUPPORT), 1)
+# if ADX insructions are supported, default is to use a fast ADX BLST implementation 
+	CRYPTO_FLAG := ""
+else
+# if ADX insructions aren't supported, this CGO flags uses a slower non-ADX BLST implementation 
+	CRYPTO_FLAG := "-O -D__BLST_PORTABLE__"
+endif
+CGO_FLAG := CGO_CFLAGS=$(CRYPTO_FLAG)
+
+
 # assumes there is a checked out version of flow-go in a "flow-go" sub-folder at this level so that the bootstrap executable
 # for the checked out version will be run in the sub folder but the bootstrap folder will be created here (outside of the checked out flow-go in the sub folder)
 gen-bootstrap: clone-flow
-	cd flow-go && make crypto_setup_gopath
-	cd flow-go/cmd/bootstrap && go run -tags relic . genconfig --address-format "%s%d-${NETWORK_ID}.${NAMESPACE}:3569" --access $(ACCESS) --collection $(COLLECTION) --consensus $(CONSENSUS) --execution $(EXECUTION) --verification $(VERIFICATION) --weight 100 -o ./ --config ../../../bootstrap/conf/node-config.json
-	cd flow-go/cmd/bootstrap && go run -tags relic . keygen --machine-account --config ../../../bootstrap/conf/node-config.json -o ../../../bootstrap/keys
+	cd flow-go/cmd/bootstrap && go run . genconfig --address-format "%s%d-${NETWORK_ID}.${NAMESPACE}:3569" --access $(ACCESS) --collection $(COLLECTION) --consensus $(CONSENSUS) --execution $(EXECUTION) --verification $(VERIFICATION) --weight 100 -o ./ --config ../../../bootstrap/conf/node-config.json
+	cd flow-go/cmd/bootstrap && go run . keygen --machine-account --config ../../../bootstrap/conf/node-config.json -o ../../../bootstrap/keys
 	echo {} > ./bootstrap/conf/partner-stakes.json
 	mkdir ./bootstrap/partner-nodes
-	cd flow-go/cmd/bootstrap && go run -tags relic . rootblock  --root-chain bench --root-height 0 --root-parent 0000000000000000000000000000000000000000000000000000000000000000 --config ../../../bootstrap/conf/node-config.json -o ../../../bootstrap/ --partner-dir ../../../bootstrap/partner-nodes --partner-weights ../../../bootstrap/conf/partner-stakes.json --internal-priv-dir ../../../bootstrap/keys/private-root-information
-	cd flow-go/cmd/bootstrap && go run -tags relic . finalize --root-commit 0000000000000000000000000000000000000000000000000000000000000000 --service-account-public-key-json "{\"PublicKey\":\"R7MTEDdLclRLrj2MI1hcp4ucgRTpR15PCHAWLM5nks6Y3H7+PGkfZTP2di2jbITooWO4DD1yqaBSAVK8iQ6i0A==\",\"SignAlgo\":2,\"HashAlgo\":1,\"SeqNumber\":0,\"Weight\":1000}" --config ../../../bootstrap/conf/node-config.json -o ../../../bootstrap/ --partner-dir ../../../bootstrap/partner-nodes --partner-weights ../../../bootstrap/conf/partner-stakes.json \
+	cd flow-go/cmd/bootstrap && go run . rootblock  --root-chain bench --root-height 0 --root-parent 0000000000000000000000000000000000000000000000000000000000000000 --config ../../../bootstrap/conf/node-config.json -o ../../../bootstrap/ --partner-dir ../../../bootstrap/partner-nodes --partner-weights ../../../bootstrap/conf/partner-stakes.json --internal-priv-dir ../../../bootstrap/keys/private-root-information
+	cd flow-go/cmd/bootstrap && go run . finalize --root-commit 0000000000000000000000000000000000000000000000000000000000000000 --service-account-public-key-json "{\"PublicKey\":\"R7MTEDdLclRLrj2MI1hcp4ucgRTpR15PCHAWLM5nks6Y3H7+PGkfZTP2di2jbITooWO4DD1yqaBSAVK8iQ6i0A==\",\"SignAlgo\":2,\"HashAlgo\":1,\"SeqNumber\":0,\"Weight\":1000}" --config ../../../bootstrap/conf/node-config.json -o ../../../bootstrap/ --partner-dir ../../../bootstrap/partner-nodes --partner-weights ../../../bootstrap/conf/partner-stakes.json \
 		--collection-clusters 1 \
 		--epoch-counter 0 \
 		--epoch-length 5000 \
@@ -49,10 +71,10 @@ gen-bootstrap: clone-flow
 		--root-block-votes-dir ../../../bootstrap/public-root-information/root-block-votes/
 
 gen-helm-l1:
-	go run automate/cmd/level1/bootstrap.go --data bootstrap/public-root-information/root-protocol-state-snapshot.json --dockerTag $(NETWORK_ID) --dockerRegistry $(DOCKER_REGISTRY)
+	$(CGO_FLAG) go run automate/cmd/level1/bootstrap.go --data bootstrap/public-root-information/root-protocol-state-snapshot.json --dockerTag $(NETWORK_ID) --dockerRegistry $(DOCKER_REGISTRY)
 
 gen-helm-l2:
-	go run automate/cmd/level2/template.go --data template-data.json --template automate/templates/helm-values-all-nodes.yml --outPath="./values.yml"
+	$(CGO_FLAG) go run automate/cmd/level2/template.go --data template-data.json --template automate/templates/helm-values-all-nodes.yml --outPath="./values.yml"
 
 # main target for creating dynamic helm values.yml chart
 # runs bootstrap to generate all node info
