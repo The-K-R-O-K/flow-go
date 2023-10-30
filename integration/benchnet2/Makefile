@@ -60,9 +60,9 @@ gen-bootstrap: clone-flow
 	cd flow-go/cmd/bootstrap && go run . finalize --root-commit 0000000000000000000000000000000000000000000000000000000000000000 --service-account-public-key-json "{\"PublicKey\":\"R7MTEDdLclRLrj2MI1hcp4ucgRTpR15PCHAWLM5nks6Y3H7+PGkfZTP2di2jbITooWO4DD1yqaBSAVK8iQ6i0A==\",\"SignAlgo\":2,\"HashAlgo\":1,\"SeqNumber\":0,\"Weight\":1000}" --config ../../../bootstrap/conf/node-config.json -o ../../../bootstrap/ --partner-dir ../../../bootstrap/partner-nodes --partner-weights ../../../bootstrap/conf/partner-stakes.json \
 		--collection-clusters 1 \
 		--epoch-counter 0 \
-		--epoch-length 7000 \
+		--epoch-length 4000 \
 		--epoch-staking-phase-length 250 \
-		--epoch-dkg-phase-length 2000 \
+		--epoch-dkg-phase-length 1000 \
 		--epoch-commit-safety-threshold=250 \
 		--genesis-token-supply="1000000000.0" \
 		--protocol-version=0 \
