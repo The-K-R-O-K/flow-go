@@ -1,4 +1,4 @@
-// +build relic
+
 
 #include "bls_thresholdsign_include.h"
 

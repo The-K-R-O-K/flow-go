@@ -1,4 +1,3 @@
-// +build relic
 
 #include "bls_include.h"
 

@@ -1,6 +1,3 @@
-//go:build relic
-// +build relic
-
 package crypto
 
 // BLS signature scheme implementation using BLS12-381 curve

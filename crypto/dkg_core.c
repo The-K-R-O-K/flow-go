@@ -1,4 +1,4 @@
-// +build relic
+
 
 #include "dkg_include.h"
 
