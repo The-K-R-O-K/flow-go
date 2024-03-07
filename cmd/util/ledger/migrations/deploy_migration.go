@@ -51,11 +51,9 @@ func NewTransactionBasedMigration(
 			return nil, res.Err
 		}
 
-		return MergeRegisterChanges(
-			snapshot.Payloads,
+		return snapshot.ApplyChangesAndGetNewPayloads(
 			executionSnapshot.WriteSet,
 			expectedWriteAddresses,
-			nil,
 			logger,
 		)
 	}
