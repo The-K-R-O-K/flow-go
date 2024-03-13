@@ -112,22 +112,12 @@ jobs:
       run: |
         gcloud auth configure-docker
 
-    - name: Build/Push ${{ matrix.role }} amd64 images with adx (default)
+    - name: Build/Push
       env:
         IMAGE_TAG: ${{ inputs.docker_tag }}
-        CADENCE_DEPLOY_KEY: ${{ secrets.CADENCE_DEPLOY_KEY }}
       run: |
-        make docker-build-${{ matrix.role }}-with-adx docker-push-${{ matrix.role }}-with-adx
-
-    - name: Build/Push ${{ matrix.role }} amd64 images without netgo and without adx, arm64 images
-      if: ${{ inputs.include_alternative_builds }}
-      env:
-        IMAGE_TAG: ${{ inputs.docker_tag }}
-        CADENCE_DEPLOY_KEY: ${{ secrets.CADENCE_DEPLOY_KEY }}
-      run: |
-        make docker-build-${{ matrix.role }}-without-adx docker-push-${{ matrix.role }}-without-adx \
-          docker-build-${{ matrix.role }}-without-netgo-without-adx docker-push-${{ matrix.role }}-without-netgo-without-adx \
-          docker-cross-build-${{ matrix.role }}-arm docker-push-${{ matrix.role }}-arm
+        make docker-build docker-push 
+          
 
 
         
