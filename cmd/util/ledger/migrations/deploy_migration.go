@@ -30,7 +30,9 @@ func NewTransactionBasedMigration(
 			fvm.WithTransactionFeesEnabled(false))
 		ctx := fvm.NewContext(options...)
 
-		snapshot, err := util.NewPayloadSnapshot(payloads)
+		// Use the map-based payload snapshot to create a new transaction state
+		// Because the change set is expected to be small compared to the number of all payloads,
+		snapshot, err := util.NewMapBasedPayloadSnapshot(payloads)
 		if err != nil {
 			return nil, err
 		}
