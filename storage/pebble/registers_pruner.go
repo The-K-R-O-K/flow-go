@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/rs/zerolog"
 
 	"github.com/onflow/flow-go/module/component"
@@ -31,7 +30,6 @@ type RegisterPruner struct {
 	componentManager *component.ComponentManager
 
 	logger   zerolog.Logger
-	db       *pebble.DB
 	register storage.RegisterIndex
 
 	// pruningInterval is a number of pruned blocks in the db, above which pruning should be triggered
@@ -72,13 +70,11 @@ func WithPruneTickerInterval(interval time.Duration) PrunerOption {
 
 func NewRegisterPruner(
 	logger zerolog.Logger,
-	db *pebble.DB,
 	register storage.RegisterIndex,
 	opts ...PrunerOption,
 ) (*RegisterPruner, error) {
 	pruner := &RegisterPruner{
 		logger:              logger.With().Str("component", "register_pruner").Logger(),
-		db:                  db,
 		register:            register,
 		pruneInterval:       pruneInterval(DefaultPruneThreshold),
 		pruneThreshold:      DefaultPruneThreshold,
@@ -122,12 +118,12 @@ func (p *RegisterPruner) loop(ctx irrecoverable.SignalerContext, ready component
 // Parameters:
 //   - ctx: The context for managing the pruning operation.
 func (p *RegisterPruner) checkPrune(ctx irrecoverable.SignalerContext) {
-	firstHeight, err := firstStoredHeight(p.db)
+	firstHeight, err := p.register.FirstStoredHeight()
 	if err != nil {
 		ctx.Throw(fmt.Errorf("failed to get first height from register storage: %w", err))
 	}
 
-	latestHeight, err := latestStoredHeight(p.db)
+	latestHeight, err := p.register.LatestStoredHeight()
 	if err != nil {
 		ctx.Throw(fmt.Errorf("failed to get latest height from register storage: %w", err))
 	}
@@ -137,19 +133,15 @@ func (p *RegisterPruner) checkPrune(ctx irrecoverable.SignalerContext) {
 	if pruneHeight-firstHeight > p.pruneInterval {
 		p.logger.Info().Uint64("prune_height", pruneHeight).Msg("pruning storage")
 
-		err := p.pruneUpToHeight(pruneHeight)
+		err := p.register.PruneUpToHeight(pruneHeight)
 		if err != nil {
 			ctx.Throw(fmt.Errorf("failed to prune: %w", err))
 		}
 
 		// update first indexed height
-		err = updateFirstStoredHeight(p.db, pruneHeight)
+		err = p.register.UpdateFirstStoredHeight(pruneHeight)
 		if err != nil {
 			ctx.Throw(fmt.Errorf("failed to update first height for register storage: %w", err))
 		}
 	}
-}
-
-func (p *RegisterPruner) pruneUpToHeight(height uint64) error {
-	return nil
 }

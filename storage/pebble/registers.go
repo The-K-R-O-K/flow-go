@@ -12,6 +12,8 @@ import (
 	"github.com/onflow/flow-go/storage/pebble/operation"
 )
 
+const deleteItemsPerBatch = 256
+
 // Registers library that implements pebble storage for registers
 // given a pebble instance with root block and root height populated
 type Registers struct {
@@ -147,14 +149,18 @@ func (s *Registers) FirstHeight() uint64 {
 	return s.firstHeight
 }
 
-func firstStoredHeight(db *pebble.DB) (uint64, error) {
-	return operation.RetrieveHeight(db, firstHeightKey)
+func (s *Registers) FirstStoredHeight() (uint64, error) {
+	return operation.RetrieveHeight(s.db, firstHeightKey)
 }
 
-func latestStoredHeight(db *pebble.DB) (uint64, error) {
-	return operation.RetrieveHeight(db, latestHeightKey)
+func (s *Registers) LatestStoredHeight() (uint64, error) {
+	return operation.RetrieveHeight(s.db, latestHeightKey)
 }
 
-func updateFirstStoredHeight(db *pebble.DB, height uint64) error {
-	return db.Set(firstHeightKey, encodedUint64(height), nil)
+func (s *Registers) UpdateFirstStoredHeight(height uint64) error {
+	return s.db.Set(firstHeightKey, encodedUint64(height), nil)
+}
+
+func (s *Registers) PruneUpToHeight(height uint64) error {
+	return nil
 }

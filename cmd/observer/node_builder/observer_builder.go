@@ -295,6 +295,9 @@ type ObserverServiceBuilder struct {
 	ExecutionDatastoreManager edstorage.DatastoreManager
 	ExecutionDataTracker      tracker.Storage
 
+	RegisterDBPruner             *pstorage.RegisterPruner
+	RegisterDBPrunerDependencies *cmd.DependencyList
+
 	RegistersAsyncStore *execution.RegistersAsyncStore
 	Reporter            *index.Reporter
 	EventsIndex         *index.EventsIndex
@@ -583,10 +586,11 @@ func NewFlowObserverServiceBuilder(opts ...Option) *ObserverServiceBuilder {
 		opt(config)
 	}
 	anb := &ObserverServiceBuilder{
-		ObserverServiceConfig: config,
-		FlowNodeBuilder:       cmd.FlowNode("observer"),
-		FollowerDistributor:   pubsub.NewFollowerDistributor(),
-		IndexerDependencies:   cmd.NewDependencyList(),
+		ObserverServiceConfig:        config,
+		FlowNodeBuilder:              cmd.FlowNode("observer"),
+		FollowerDistributor:          pubsub.NewFollowerDistributor(),
+		IndexerDependencies:          cmd.NewDependencyList(),
+		RegisterDBPrunerDependencies: cmd.NewDependencyList(),
 	}
 	anb.FollowerDistributor.AddProposalViolationConsumer(notifications.NewSlashingViolationsConsumer(anb.Logger))
 	// the observer gets a version of the root snapshot file that does not contain any node addresses
@@ -1139,6 +1143,10 @@ func (builder *ObserverServiceBuilder) BuildExecutionSyncComponents() *ObserverS
 	requesterDependable := module.NewProxiedReadyDoneAware()
 	builder.IndexerDependencies.Add(requesterDependable)
 
+	// setup dependency chain to ensure register db pruner starts after the indexer
+	indexerDependable := module.NewProxiedReadyDoneAware()
+	builder.RegisterDBPrunerDependencies.Add(indexerDependable)
+
 	executionDataPrunerEnabled := builder.executionDataPrunerHeightRangeTarget != 0
 
 	builder.
@@ -1543,8 +1551,31 @@ func (builder *ObserverServiceBuilder) BuildExecutionSyncComponents() *ObserverS
 				return nil, err
 			}
 
+			// add indexer into ReadyDoneAware dependency passed to pruner. This allows the register db pruner
+			// to wait for the indexer to be ready before starting.
+			indexerDependable.Init(builder.ExecutionIndexer)
+
 			return builder.ExecutionIndexer, nil
-		}, builder.IndexerDependencies)
+		}, builder.IndexerDependencies).
+			DependableComponent("register db pruner", func(node *cmd.NodeConfig) (module.ReadyDoneAware, error) {
+				if !builder.registerDBPruningEnabled {
+					return &module.NoopReadyDoneAware{}, nil
+				}
+
+				var err error
+				builder.RegisterDBPruner, err = pstorage.NewRegisterPruner(
+					node.Logger,
+					builder.Storage.RegisterIndex,
+					//pstorage.WithPruneThreshold(builder.registerDBPruneThreshold),
+					pstorage.WithPruneThrottleDelay(builder.registerDBPruneThrottleDelay),
+					pstorage.WithPruneTickerInterval(builder.registerDBPruneTickerInterval),
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create register db pruner: %w", err)
+				}
+
+				return builder.RegisterDBPruner, nil
+			}, builder.RegisterDBPrunerDependencies)
 	}
 
 	if builder.stateStreamConf.ListenAddr != "" {

@@ -15,10 +15,10 @@ type RegisterIndex interface {
 	// - storage.ErrNotFound if the given height is indexed, but the register does not exist.
 	Get(ID flow.RegisterID, height uint64) (flow.RegisterValue, error)
 
-	// LatestHeight returns the latest indexed height.
+	// LatestHeight returns the latest indexed height. Returns the latest indexed height found in the cache.
 	LatestHeight() uint64
 
-	// FirstHeight at which we started to index. Returns the first indexed height found in the store.
+	// FirstHeight at which we started to index. Returns the first indexed height found in the cache.
 	FirstHeight() uint64
 
 	// Store batch of register entries at the provided block height.
@@ -29,4 +29,27 @@ type RegisterIndex interface {
 	//
 	// No errors are expected during normal operation.
 	Store(entries flow.RegisterEntries, height uint64) error
+
+	// FirstStoredHeight at which we started to index. Returns the first indexed height found in the database.
+	//
+	// No errors are expected during normal operation.
+	FirstStoredHeight() (uint64, error)
+
+	// LatestStoredHeight returns the latest indexed height. Returns the latest indexed height found in the database.
+	//
+	// No errors are expected during normal operation.
+	LatestStoredHeight() (uint64, error)
+
+	// UpdateFirstStoredHeight updates the first height value,
+	// It is up to the caller to ensure that this is never
+	// called with a value lower than the pruned height.
+	//
+	// No errors are expected during normal operation.
+	UpdateFirstStoredHeight(uint64) error
+
+	// PruneUpToHeight removes all data from storage corresponding
+	// to block heights up to and including the given height.
+	//
+	// No errors are expected during normal operation.
+	PruneUpToHeight(uint64) error
 }

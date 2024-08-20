@@ -1,14 +1,14 @@
 package pebble
 
 import (
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/onflow/flow-go/storage"
+	"github.com/onflow/flow-go/storage/pebble/operation"
 	"github.com/onflow/flow-go/storage/pebble/registers"
 )
 
@@ -72,7 +72,7 @@ func OpenDefaultPebbleDB(dir string) (*pebble.DB, error) {
 // If the register db is corrupted, it returns an error
 func ReadHeightsFromBootstrappedDB(db *pebble.DB) (firstHeight uint64, latestHeight uint64, err error) {
 	// check height keys and populate cache. These two variables will have been set
-	firstHeight, err = firstStoredHeight(db)
+	firstHeight, err = operation.RetrieveHeight(db, firstHeightKey)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return 0, 0, fmt.Errorf("unable to initialize register storage, first height not found in db: %w", storage.ErrNotBootstrapped)
@@ -80,7 +80,7 @@ func ReadHeightsFromBootstrappedDB(db *pebble.DB) (firstHeight uint64, latestHei
 		// this means that the DB is either in a corrupted state or has not been initialized
 		return 0, 0, fmt.Errorf("unable to initialize register storage, first height unavailable in db: %w", err)
 	}
-	latestHeight, err = latestStoredHeight(db)
+	latestHeight, err = operation.RetrieveHeight(db, latestHeightKey)
 	if err != nil {
 		// first height is found, but latest height is not found, this means that the DB is in a corrupted state
 		return 0, 0, fmt.Errorf("unable to initialize register storage, latest height unavailable in db: %w", err)
@@ -92,8 +92,8 @@ func ReadHeightsFromBootstrappedDB(db *pebble.DB) (firstHeight uint64, latestHei
 // otherwise return false
 // it returns error if the db is corrupted or other exceptions
 func IsBootstrapped(db *pebble.DB) (bool, error) {
-	_, err1 := firstStoredHeight(db)
-	_, err2 := latestStoredHeight(db)
+	_, err1 := operation.RetrieveHeight(db, firstHeightKey)
+	_, err2 := operation.RetrieveHeight(db, latestHeightKey)
 
 	if err1 == nil && err2 == nil {
 		return true, nil
