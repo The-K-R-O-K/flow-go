@@ -314,6 +314,7 @@ type FlowAccessNodeBuilder struct {
 	stateStreamGrpcServer *grpcserver.GrpcServer
 
 	stateStreamBackend *statestreambackend.StateStreamBackend
+	nodeBackend        *backend.Backend
 }
 
 func (builder *FlowAccessNodeBuilder) buildFollowerState() *FlowAccessNodeBuilder {
@@ -1625,7 +1626,7 @@ func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
 				return nil, fmt.Errorf("transaction result query mode 'compare' is not supported")
 			}
 
-			nodeBackend, err := backend.New(backend.Params{
+			builder.nodeBackend, err = backend.New(backend.Params{
 				State:                     node.State,
 				CollectionRPC:             builder.CollectionRPC,
 				HistoricalAccessNodes:     builder.HistoricalAccessRPCs,
@@ -1666,8 +1667,8 @@ func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
 				builder.AccessMetrics,
 				builder.rpcMetricsEnabled,
 				builder.Me,
-				nodeBackend,
-				nodeBackend,
+				builder.nodeBackend,
+				builder.nodeBackend,
 				builder.secureGrpcServer,
 				builder.unsecureGrpcServer,
 				builder.stateStreamBackend,
@@ -1717,7 +1718,13 @@ func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
 				node.Storage.Transactions,
 				node.Storage.Results,
 				node.Storage.Receipts,
+				node.Storage.TransactionResultErrorMessages,
 				builder.collectionExecutedMetric,
+				processedFinalizedBlockHeight,
+				builder.nodeBackend,
+				node.DB,
+				builder.rpcConf.BackendConfig.PreferredExecutionNodeIDs,
+				builder.rpcConf.BackendConfig.FixedExecutionNodeIDs,
 			)
 			if err != nil {
 				return nil, err

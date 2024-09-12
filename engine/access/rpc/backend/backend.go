@@ -13,21 +13,17 @@ import (
 	"github.com/onflow/flow-go/access"
 	"github.com/onflow/flow-go/cmd/build"
 	"github.com/onflow/flow-go/engine/access/rpc/connection"
-	"github.com/onflow/flow-go/engine/common/rpc"
+	//	"github.com/onflow/flow-go/engine/common/rpc"
+	//<<<<<<< HEAD
+	//=======
+	commonrpc "github.com/onflow/flow-go/engine/common/rpc"
 	"github.com/onflow/flow-go/fvm/blueprints"
 	"github.com/onflow/flow-go/model/flow"
-	"github.com/onflow/flow-go/model/flow/filter"
 	"github.com/onflow/flow-go/module"
 	"github.com/onflow/flow-go/module/execution"
 	"github.com/onflow/flow-go/state/protocol"
 	"github.com/onflow/flow-go/storage"
 )
-
-// minExecutionNodesCnt is the minimum number of execution nodes expected to have sent the execution receipt for a block
-const minExecutionNodesCnt = 2
-
-// maxAttemptsForExecutionReceipt is the maximum number of attempts to find execution receipts for a given block ID
-const maxAttemptsForExecutionReceipt = 3
 
 // DefaultMaxHeightRange is the default maximum size of range requests.
 const DefaultMaxHeightRange = 250
@@ -248,12 +244,12 @@ func New(params Params) (*Backend, error) {
 
 	retry.SetBackend(b)
 
-	preferredENIdentifiers, err = identifierList(params.PreferredExecutionNodeIDs)
+	preferredENIdentifiers, err = commonrpc.IdentifierList(params.PreferredExecutionNodeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert node id string to Flow Identifier for preferred EN map: %w", err)
 	}
 
-	fixedENIdentifiers, err = identifierList(params.FixedExecutionNodeIDs)
+	fixedENIdentifiers, err = commonrpc.IdentifierList(params.FixedExecutionNodeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert node id string to Flow Identifier for fixed EN map: %w", err)
 	}
@@ -261,18 +257,7 @@ func New(params Params) (*Backend, error) {
 	return b, nil
 }
 
-func identifierList(ids []string) (flow.IdentifierList, error) {
-	idList := make(flow.IdentifierList, len(ids))
-	for i, idStr := range ids {
-		id, err := flow.HexStringToIdentifier(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert node id string %s to Flow Identifier: %w", id, err)
-		}
-		idList[i] = id
-	}
-	return idList, nil
-}
-
+// func configureTransactionValidator(state protocol.State, chainID flow.ChainID) *access.TransactionValidator {
 func configureTransactionValidator(state protocol.State, chainID flow.ChainID) *access.TransactionValidator {
 	return access.NewTransactionValidator(
 		access.NewProtocolStateBlocks(state),
@@ -351,7 +336,7 @@ func (b *Backend) GetCollectionByID(_ context.Context, colID flow.Identifier) (*
 		// it is possible for a client to request a finalized block from us
 		// containing some collection, then get a not found error when requesting
 		// that collection. These clients should retry.
-		err = rpc.ConvertStorageError(fmt.Errorf("please retry for collection in finalized block: %w", err))
+		err = commonrpc.ConvertStorageError(fmt.Errorf("please retry for collection in finalized block: %w", err))
 		return nil, err
 	}
 

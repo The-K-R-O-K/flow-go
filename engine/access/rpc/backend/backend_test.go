@@ -26,6 +26,7 @@ import (
 	backendmock "github.com/onflow/flow-go/engine/access/rpc/backend/mock"
 	"github.com/onflow/flow-go/engine/access/rpc/connection"
 	connectionmock "github.com/onflow/flow-go/engine/access/rpc/connection/mock"
+	commonrpc "github.com/onflow/flow-go/engine/common/rpc"
 	"github.com/onflow/flow-go/engine/common/rpc/convert"
 	"github.com/onflow/flow-go/fvm/blueprints"
 	"github.com/onflow/flow-go/model/flow"
@@ -1723,7 +1724,7 @@ func (suite *Suite) TestGetNetworkParameters() {
 	suite.Require().Equal(expectedChainID, actual.ChainID)
 }
 
-// TestExecutionNodesForBlockID tests the common method backend.executionNodesForBlockID used for serving all API calls
+// TestExecutionNodesForBlockID tests the common method backend.ExecutionNodesForBlockID used for serving all API calls
 // that need to talk to an execution node.
 func (suite *Suite) TestExecutionNodesForBlockID() {
 
@@ -1789,7 +1790,7 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 			expectedENs = flow.IdentityList{}
 		}
 
-		allExecNodes, err := executionNodesForBlockID(context.Background(), block.ID(), suite.receipts, suite.state, suite.log)
+		allExecNodes, err := commonrpc.ExecutionNodesForBlockID(context.Background(), block.ID(), suite.receipts, suite.state, suite.log, preferredENIdentifiers, fixedENIdentifiers)
 		require.NoError(suite.T(), err)
 
 		execNodeSelectorFactory := NodeSelectorFactory{circuitBreakerEnabled: false}
@@ -1801,15 +1802,26 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 			actualList = append(actualList, actual)
 		}
 
+<<<<<<< HEAD
 		if len(expectedENs) > maxNodesCnt {
 			for _, actual := range actualList {
 				require.Contains(suite.T(), expectedENs, actual)
+=======
+		{
+			expectedENs := expectedENs.ToSkeleton()
+			if len(expectedENs) > commonrpc.MaxNodesCnt {
+				for _, actual := range actualList {
+					require.Contains(suite.T(), expectedENs, actual)
+				}
+			} else {
+				require.ElementsMatch(suite.T(), actualList, expectedENs)
+>>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 			}
 		} else {
 			require.ElementsMatch(suite.T(), actualList, expectedENs)
 		}
 	}
-	// if we don't find sufficient receipts, executionNodesForBlockID should return a list of random ENs
+	// if we don't find sufficient receipts, ExecutionNodesForBlockID should return a list of random ENs
 	suite.Run("insufficient receipts return random ENs in State", func() {
 		// return no receipts at all attempts
 		attempt1Receipts = flow.ExecutionReceiptList{}
@@ -1817,7 +1829,8 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		attempt3Receipts = flow.ExecutionReceiptList{}
 		suite.state.On("AtBlockID", mock.Anything).Return(suite.snapshot)
 
-		allExecNodes, err := executionNodesForBlockID(context.Background(), block.ID(), suite.receipts, suite.state, suite.log)
+		allExecNodes, err := commonrpc.ExecutionNodesForBlockID(context.Background(), block.ID(), suite.receipts, suite.state, suite.log, preferredENIdentifiers,
+			fixedENIdentifiers)
 		require.NoError(suite.T(), err)
 
 		execNodeSelectorFactory := NodeSelectorFactory{circuitBreakerEnabled: false}
@@ -1829,7 +1842,7 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 			actualList = append(actualList, actual)
 		}
 
-		require.Equal(suite.T(), len(actualList), maxNodesCnt)
+		require.Equal(suite.T(), len(actualList), commonrpc.MaxNodesCnt)
 	})
 
 	// if no preferred or fixed ENs are specified, the ExecutionNodesForBlockID function should
@@ -1853,6 +1866,17 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		expectedList := fixedENs
 		testExecutionNodesForBlockID(nil, fixedENs, expectedList)
 	})
+<<<<<<< HEAD
+=======
+	// if only preferred ENs are specified, the ExecutionNodesForBlockID function should
+	// return the preferred ENs list
+	suite.Run("two preferred ENs with zero fixed EN", func() {
+		// mark the first two ENs as preferred
+		preferredENs := allExecutionNodes[0:2]
+		expectedList := allExecutionNodes[0:commonrpc.MaxNodesCnt]
+		testExecutionNodesForBlockID(preferredENs, nil, expectedList)
+	})
+>>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 	// if both are specified, the ExecutionNodesForBlockID function should
 	// return the preferred ENs list
 	suite.Run("four fixed ENs of which two are preferred ENs", func() {
@@ -1860,7 +1884,11 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		fixedENs := allExecutionNodes[0:5]
 		// mark the first two of the fixed ENs as preferred ENs
 		preferredENs := fixedENs[0:2]
+<<<<<<< HEAD
 		expectedList := preferredENs
+=======
+		expectedList := fixedENs[0:commonrpc.MaxNodesCnt]
+>>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 		testExecutionNodesForBlockID(preferredENs, fixedENs, expectedList)
 	})
 	// if both are specified, but the preferred ENs don't match the ExecutorIDs in the ER,
@@ -1884,9 +1912,38 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		currentAttempt = 0
 		// mark the first two ENs as preferred
 		preferredENs := allExecutionNodes[0:2]
+<<<<<<< HEAD
 		expectedList := preferredENs
 		testExecutionNodesForBlockID(preferredENs, nil, expectedList)
 	})
+=======
+		expectedList := allExecutionNodes[0:commonrpc.MaxNodesCnt]
+		testExecutionNodesForBlockID(preferredENs, nil, expectedList)
+	})
+	// if preferredENIdentifiers was set and there are less than maxNodesCnt nodes selected than check the order
+	// of adding ENs ids
+	suite.Run("add nodes in the correct order", func() {
+		//  mark the first EN as preferred
+		preferredENIdentifiers = allExecutionNodes[0:1].NodeIDs()
+		//  mark the fourth EN with receipt
+		executorIDs := allExecutionNodes[3:4].NodeIDs()
+
+		receiptNodes := allExecutionNodes[3:4]   // any EN with a receipt
+		preferredNodes := allExecutionNodes[0:1] // preferred EN node not already selected
+		additionalNode := allExecutionNodes[1:2] // any EN not already selected
+
+		expectedOrder := flow.IdentityList{
+			receiptNodes[0],
+			preferredNodes[0],
+			additionalNode[0],
+		}
+
+		chosenIDs := commonrpc.ChooseFromPreferredENIDs(allExecutionNodes, executorIDs, preferredENIdentifiers)
+
+		require.ElementsMatch(suite.T(), chosenIDs, expectedOrder)
+		require.Equal(suite.T(), len(chosenIDs), commonrpc.MaxNodesCnt)
+	})
+>>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 }
 
 // TestGetTransactionResultEventEncodingVersion tests the GetTransactionResult function with different event encoding versions.

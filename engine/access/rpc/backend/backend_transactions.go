@@ -17,6 +17,7 @@ import (
 	"github.com/onflow/flow-go/access"
 	"github.com/onflow/flow-go/engine/access/rpc/connection"
 	"github.com/onflow/flow-go/engine/common/rpc"
+	commonrpc "github.com/onflow/flow-go/engine/common/rpc"
 	"github.com/onflow/flow-go/engine/common/rpc/convert"
 	"github.com/onflow/flow-go/model/flow"
 	"github.com/onflow/flow-go/module"
@@ -406,7 +407,15 @@ func (b *backendTransactions) getTransactionResultsByBlockIDFromExecutionNode(
 		BlockId: blockID[:],
 	}
 
-	execNodes, err := executionNodesForBlockID(ctx, blockID, b.executionReceipts, b.state, b.log)
+	execNodes, err := commonrpc.ExecutionNodesForBlockID(
+		ctx,
+		blockID,
+		b.executionReceipts,
+		b.state,
+		b.log,
+		preferredENIdentifiers,
+		fixedENIdentifiers,
+	)
 	if err != nil {
 		if IsInsufficientExecutionReceipts(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -564,7 +573,15 @@ func (b *backendTransactions) getTransactionResultByIndexFromExecutionNode(
 		Index:   index,
 	}
 
-	execNodes, err := executionNodesForBlockID(ctx, blockID, b.executionReceipts, b.state, b.log)
+	execNodes, err := commonrpc.ExecutionNodesForBlockID(
+		ctx,
+		blockID,
+		b.executionReceipts,
+		b.state,
+		b.log,
+		preferredENIdentifiers,
+		fixedENIdentifiers,
+	)
 	if err != nil {
 		if IsInsufficientExecutionReceipts(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -783,7 +800,15 @@ func (b *backendTransactions) getTransactionResultFromExecutionNode(
 		TransactionId: transactionID[:],
 	}
 
-	execNodes, err := executionNodesForBlockID(ctx, blockID, b.executionReceipts, b.state, b.log)
+	execNodes, err := commonrpc.ExecutionNodesForBlockID(
+		ctx,
+		blockID,
+		b.executionReceipts,
+		b.state,
+		b.log,
+		preferredENIdentifiers,
+		fixedENIdentifiers,
+	)
 	if err != nil {
 		// if no execution receipt were found, return a NotFound GRPC error
 		if IsInsufficientExecutionReceipts(err) {
@@ -1023,7 +1048,15 @@ func (b *backendTransactions) LookupErrorMessageByTransactionID(
 		}
 	}
 
-	execNodes, err := executionNodesForBlockID(ctx, blockID, b.executionReceipts, b.state, b.log)
+	execNodes, err := commonrpc.ExecutionNodesForBlockID(
+		ctx,
+		blockID,
+		b.executionReceipts,
+		b.state,
+		b.log,
+		preferredENIdentifiers,
+		fixedENIdentifiers,
+	)
 	if err != nil {
 		if IsInsufficientExecutionReceipts(err) {
 			return "", status.Errorf(codes.NotFound, err.Error())
@@ -1077,7 +1110,15 @@ func (b *backendTransactions) LookupErrorMessageByIndex(
 		}
 	}
 
-	execNodes, err := executionNodesForBlockID(ctx, blockID, b.executionReceipts, b.state, b.log)
+	execNodes, err := commonrpc.ExecutionNodesForBlockID(
+		ctx,
+		blockID,
+		b.executionReceipts,
+		b.state,
+		b.log,
+		preferredENIdentifiers,
+		fixedENIdentifiers,
+	)
 	if err != nil {
 		if IsInsufficientExecutionReceipts(err) {
 			return "", status.Errorf(codes.NotFound, err.Error())
@@ -1139,7 +1180,14 @@ func (b *backendTransactions) LookupErrorMessagesByBlockID(
 		}
 	}
 
-	execNodes, err := executionNodesForBlockID(ctx, blockID, b.executionReceipts, b.state, b.log)
+	execNodes, err := commonrpc.ExecutionNodesForBlockID(ctx,
+		blockID,
+		b.executionReceipts,
+		b.state,
+		b.log,
+		preferredENIdentifiers,
+		fixedENIdentifiers,
+	)
 	if err != nil {
 		if IsInsufficientExecutionReceipts(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -1150,7 +1198,7 @@ func (b *backendTransactions) LookupErrorMessagesByBlockID(
 		BlockId: convert.IdentifierToMessage(blockID),
 	}
 
-	resp, err := b.getTransactionErrorMessagesFromAnyEN(ctx, execNodes, req)
+	resp, _, err := b.GetTransactionErrorMessagesFromAnyEN(ctx, execNodes, req)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch error message from ENs: %w", err)
 	}
@@ -1249,26 +1297,29 @@ func (b *backendTransactions) getTransactionErrorMessageByIndexFromAnyEN(
 	return resp, nil
 }
 
-// getTransactionErrorMessagesFromAnyEN performs an RPC call using available nodes passed as argument. List of nodes must be non-empty otherwise an error will be returned.
+// GetTransactionErrorMessagesFromAnyEN performs an RPC call using available nodes passed as argument. List of nodes must be non-empty otherwise an error will be returned.
 // Expected errors during normal operation:
 //   - status.Error - GRPC call failed, some of possible codes are:
 //   - codes.NotFound - request cannot be served by EN because of absence of data.
 //   - codes.Unavailable - remote node is not unavailable.
-func (b *backendTransactions) getTransactionErrorMessagesFromAnyEN(
+func (b *backendTransactions) GetTransactionErrorMessagesFromAnyEN(
 	ctx context.Context,
 	execNodes flow.IdentityList,
 	req *execproto.GetTransactionErrorMessagesByBlockIDRequest,
-) ([]*execproto.GetTransactionErrorMessagesResponse_Result, error) {
+) ([]*execproto.GetTransactionErrorMessagesResponse_Result, *flow.IdentitySkeleton, error) {
 	// if we were passed 0 execution nodes add a specific error
 	if len(execNodes) == 0 {
-		return nil, errors.New("zero execution nodes")
+		return nil, nil, errors.New("zero execution nodes")
 	}
 
 	var resp *execproto.GetTransactionErrorMessagesResponse
+	var execNode *flow.IdentitySkeleton
+
 	errToReturn := b.nodeCommunicator.CallAvailableNode(
 		execNodes,
 		func(node *flow.Identity) error {
 			var err error
+			execNode = node
 			resp, err = b.tryGetTransactionErrorMessagesByBlockIDFromEN(ctx, node, req)
 			if err == nil {
 				b.log.Debug().
@@ -1285,10 +1336,10 @@ func (b *backendTransactions) getTransactionErrorMessagesFromAnyEN(
 	// log the errors
 	if errToReturn != nil {
 		b.log.Err(errToReturn).Msg("failed to get transaction error messages from execution nodes")
-		return nil, errToReturn
+		return nil, nil, errToReturn
 	}
 
-	return resp.GetResults(), nil
+	return resp.GetResults(), execNode, nil
 }
 
 // Expected errors during normal operation:
