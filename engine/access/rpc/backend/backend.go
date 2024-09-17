@@ -83,6 +83,7 @@ type Params struct {
 	Transactions              storage.Transactions
 	ExecutionReceipts         storage.ExecutionReceipts
 	ExecutionResults          storage.ExecutionResults
+	TxResultErrorMessages     storage.TransactionResultErrorMessages
 	ChainID                   flow.ChainID
 	AccessMetrics             module.AccessMetrics
 	ConnFactory               connection.ConnectionFactory
@@ -94,7 +95,6 @@ type Params struct {
 	SnapshotHistoryLimit      int
 	Communicator              Communicator
 	TxResultCacheSize         uint
-	TxErrorMessagesCacheSize  uint
 	ScriptExecutor            execution.ScriptExecutor
 	ScriptExecutionMode       IndexQueryMode
 	EventQueryMode            IndexQueryMode
@@ -122,18 +122,6 @@ func New(params Params) (*Backend, error) {
 		txResCache, err = lru.New[flow.Identifier, *access.TransactionResult](int(params.TxResultCacheSize))
 		if err != nil {
 			return nil, fmt.Errorf("failed to init cache for transaction results: %w", err)
-		}
-	}
-
-	// NOTE: The transaction error message cache is currently only used by the access node and not by the observer node.
-	//       To avoid introducing unnecessary command line arguments in the observer, one case could be that the error
-	//       message cache is nil for the observer node.
-	var txErrorMessagesCache *lru.Cache[flow.Identifier, string]
-
-	if params.TxErrorMessagesCacheSize > 0 {
-		txErrorMessagesCache, err = lru.New[flow.Identifier, string](int(params.TxErrorMessagesCacheSize))
-		if err != nil {
-			return nil, fmt.Errorf("failed to init cache for transaction error messages: %w", err)
 		}
 	}
 
@@ -166,7 +154,7 @@ func New(params Params) (*Backend, error) {
 			scriptExecMode:    params.ScriptExecutionMode,
 		},
 		backendTransactions: backendTransactions{
-			TransactionsLocalDataProvider: TransactionsLocalDataProvider{
+			TransactionsLocalDataProvider: &TransactionsLocalDataProvider{
 				state:          params.State,
 				collections:    params.Collections,
 				blocks:         params.Blocks,
@@ -174,22 +162,22 @@ func New(params Params) (*Backend, error) {
 				txResultsIndex: params.TxResultsIndex,
 				systemTxID:     systemTxID,
 			},
-			log:                  params.Log,
-			staticCollectionRPC:  params.CollectionRPC,
-			chainID:              params.ChainID,
-			transactions:         params.Transactions,
-			executionReceipts:    params.ExecutionReceipts,
-			transactionValidator: configureTransactionValidator(params.State, params.ChainID),
-			transactionMetrics:   params.AccessMetrics,
-			retry:                retry,
-			connFactory:          params.ConnFactory,
-			previousAccessNodes:  params.HistoricalAccessNodes,
-			nodeCommunicator:     params.Communicator,
-			txResultCache:        txResCache,
-			txErrorMessagesCache: txErrorMessagesCache,
-			txResultQueryMode:    params.TxResultQueryMode,
-			systemTx:             systemTx,
-			systemTxID:           systemTxID,
+			log:                   params.Log,
+			staticCollectionRPC:   params.CollectionRPC,
+			chainID:               params.ChainID,
+			transactions:          params.Transactions,
+			executionReceipts:     params.ExecutionReceipts,
+			txResultErrorMessages: params.TxResultErrorMessages,
+			transactionValidator:  configureTransactionValidator(params.State, params.ChainID),
+			transactionMetrics:    params.AccessMetrics,
+			retry:                 retry,
+			connFactory:           params.ConnFactory,
+			previousAccessNodes:   params.HistoricalAccessNodes,
+			nodeCommunicator:      params.Communicator,
+			txResultCache:         txResCache,
+			txResultQueryMode:     params.TxResultQueryMode,
+			systemTx:              systemTx,
+			systemTxID:            systemTxID,
 		},
 		backendEvents: backendEvents{
 			log:               params.Log,

@@ -43,20 +43,21 @@ type Suite struct {
 		params   *protocol.Params
 	}
 
-	me             *module.Local
-	request        *module.Requester
-	provider       *mocknetwork.Engine
-	blocks         *storage.Blocks
-	headers        *storage.Headers
-	collections    *storage.Collections
-	transactions   *storage.Transactions
-	receipts       *storage.ExecutionReceipts
-	results        *storage.ExecutionResults
-	seals          *storage.Seals
-	downloader     *downloadermock.Downloader
-	sealedBlock    *flow.Header
-	finalizedBlock *flow.Header
-	log            zerolog.Logger
+	me              *module.Local
+	request         *module.Requester
+	provider        *mocknetwork.Engine
+	blocks          *storage.Blocks
+	headers         *storage.Headers
+	collections     *storage.Collections
+	transactions    *storage.Transactions
+	receipts        *storage.ExecutionReceipts
+	results         *storage.ExecutionResults
+	seals           *storage.Seals
+	txErrorMessages *storage.TransactionResultErrorMessages
+	downloader      *downloadermock.Downloader
+	sealedBlock     *flow.Header
+	finalizedBlock  *flow.Header
+	log             zerolog.Logger
 
 	collectionExecutedMetric *indexer.CollectionExecutedMetricImpl
 
@@ -111,6 +112,7 @@ func (s *Suite) SetupTest() {
 	s.transactions = new(storage.Transactions)
 	s.receipts = new(storage.ExecutionReceipts)
 	s.results = new(storage.ExecutionResults)
+	s.txErrorMessages = new(storage.TransactionResultErrorMessages)
 	collectionsToMarkFinalized, err := stdmap.NewTimes(100)
 	require.NoError(s.T(), err)
 	collectionsToMarkExecuted, err := stdmap.NewTimes(100)
@@ -129,11 +131,29 @@ func (s *Suite) SetupTest() {
 	)
 	require.NoError(s.T(), err)
 
-	eng, err := New(s.log, net, s.proto.state, s.me, s.request, s.blocks, s.headers, s.collections,
-		s.transactions, s.results, s.receipts, nil, s.collectionExecutedMetric, nil, nil, nil, nil)
-	require.NoError(s.T(), err)
-
 	s.blocks.On("GetLastFullBlockHeight").Once().Return(uint64(0), errors.New("do nothing"))
+
+	enIdentities := unittest.IdentityListFixture(2, unittest.WithRole(flow.RoleExecution))
+	enNodeIDs := enIdentities.NodeIDs()
+
+	eng, err := New(
+		s.log,
+		net,
+		s.proto.state,
+		s.me, s.request,
+		s.blocks,
+		s.headers,
+		s.collections,
+		s.transactions,
+		s.results,
+		s.receipts,
+		s.txErrorMessages,
+		s.collectionExecutedMetric,
+		nil, // TODO: add tests
+		enNodeIDs.Strings(),
+		nil,
+	)
+	require.NoError(s.T(), err)
 
 	irrecoverableCtx, _ := irrecoverable.WithSignaler(ctx)
 	eng.ComponentManager.Start(irrecoverableCtx)

@@ -66,6 +66,7 @@ type Suite struct {
 	results            *storagemock.ExecutionResults
 	transactionResults *storagemock.LightTransactionResults
 	events             *storagemock.Events
+	txErrorMessages    *storagemock.TransactionResultErrorMessages
 
 	colClient              *access.AccessAPIClient
 	execClient             *access.ExecutionAPIClient
@@ -101,6 +102,7 @@ func (suite *Suite) SetupTest() {
 	suite.collections = new(storagemock.Collections)
 	suite.receipts = new(storagemock.ExecutionReceipts)
 	suite.results = new(storagemock.ExecutionResults)
+	suite.txErrorMessages = new(storagemock.TransactionResultErrorMessages)
 	suite.colClient = new(access.AccessAPIClient)
 	suite.execClient = new(access.ExecutionAPIClient)
 	suite.transactionResults = storagemock.NewLightTransactionResults(suite.T())
@@ -2219,21 +2221,21 @@ func generateEncodedEvents(t *testing.T, n int) ([]flow.Event, []flow.Event) {
 
 func (suite *Suite) defaultBackendParams() Params {
 	return Params{
-		State:                    suite.state,
-		Blocks:                   suite.blocks,
-		Headers:                  suite.headers,
-		Collections:              suite.collections,
-		Transactions:             suite.transactions,
-		ExecutionReceipts:        suite.receipts,
-		ExecutionResults:         suite.results,
-		ChainID:                  suite.chainID,
-		CollectionRPC:            suite.colClient,
-		MaxHeightRange:           DefaultMaxHeightRange,
-		SnapshotHistoryLimit:     DefaultSnapshotHistoryLimit,
-		Communicator:             NewNodeCommunicator(false),
-		AccessMetrics:            metrics.NewNoopCollector(),
-		Log:                      suite.log,
-		TxErrorMessagesCacheSize: 1000,
-		TxResultQueryMode:        IndexQueryModeExecutionNodesOnly,
+		State:                 suite.state,
+		Blocks:                suite.blocks,
+		Headers:               suite.headers,
+		Collections:           suite.collections,
+		Transactions:          suite.transactions,
+		ExecutionReceipts:     suite.receipts,
+		ExecutionResults:      suite.results,
+		TxResultErrorMessages: suite.txErrorMessages,
+		ChainID:               suite.chainID,
+		CollectionRPC:         suite.colClient,
+		MaxHeightRange:        DefaultMaxHeightRange,
+		SnapshotHistoryLimit:  DefaultSnapshotHistoryLimit,
+		Communicator:          NewNodeCommunicator(false),
+		AccessMetrics:         metrics.NewNoopCollector(),
+		Log:                   suite.log,
+		TxResultQueryMode:     IndexQueryModeExecutionNodesOnly,
 	}
 }
