@@ -595,7 +595,6 @@ func (suite *Suite) TestGetSealedTransaction() {
 		all := util.StorageLayer(suite.T(), db)
 		results := bstorage.NewExecutionResults(suite.metrics, db)
 		receipts := bstorage.NewExecutionReceipts(suite.metrics, db, results, bstorage.DefaultCacheSize)
-		txResultErrorMessages := bstorage.NewTransactionResultErrorMessages(suite.metrics, db, bstorage.DefaultCacheSize)
 		enIdentities := unittest.IdentityListFixture(2, unittest.WithRole(flow.RoleExecution))
 		enNodeIDs := enIdentities.NodeIDs()
 
@@ -684,7 +683,7 @@ func (suite *Suite) TestGetSealedTransaction() {
 			transactions,
 			results,
 			receipts,
-			txResultErrorMessages,
+			nil,
 			collectionExecutedMetric,
 			bnd,
 			enNodeIDs.Strings(),
@@ -742,8 +741,6 @@ func (suite *Suite) TestGetTransactionResult() {
 		all := util.StorageLayer(suite.T(), db)
 		results := bstorage.NewExecutionResults(suite.metrics, db)
 		receipts := bstorage.NewExecutionReceipts(suite.metrics, db, results, bstorage.DefaultCacheSize)
-		txResultErrorMessages := bstorage.NewTransactionResultErrorMessages(suite.metrics, db, bstorage.DefaultCacheSize)
-
 		originID := unittest.IdentifierFixture()
 
 		*suite.state = protocol.State{}
@@ -840,9 +837,7 @@ func (suite *Suite) TestGetTransactionResult() {
 
 		// create the ingest engine
 		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
-			transactions, results, receipts, txResultErrorMessages, collectionExecutedMetric, bnd, enNodeIDs.Strings(),
-			nil,
-		)
+			transactions, results, receipts, nil, collectionExecutedMetric, bnd, enNodeIDs.Strings(), nil)
 		require.NoError(suite.T(), err)
 
 		background, cancel := context.WithCancel(context.Background())
@@ -1000,8 +995,6 @@ func (suite *Suite) TestExecuteScript() {
 		collections := bstorage.NewCollections(db, transactions)
 		results := bstorage.NewExecutionResults(suite.metrics, db)
 		receipts := bstorage.NewExecutionReceipts(suite.metrics, db, results, bstorage.DefaultCacheSize)
-		txResultErrorMessages := bstorage.NewTransactionResultErrorMessages(suite.metrics, db, bstorage.DefaultCacheSize)
-
 		identities := unittest.IdentityListFixture(2, unittest.WithRole(flow.RoleExecution))
 		suite.sealedSnapshot.On("Identities", mock.Anything).Return(identities, nil)
 		suite.finalSnapshot.On("Identities", mock.Anything).Return(identities, nil)
@@ -1063,9 +1056,8 @@ func (suite *Suite) TestExecuteScript() {
 			Once()
 		// create the ingest engine
 		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
-			transactions, results, receipts, txResultErrorMessages, collectionExecutedMetric, suite.backend,
-			enNodeIDs.Strings(),
-			nil)
+			transactions, results, receipts, nil, collectionExecutedMetric, suite.backend, enNodeIDs.Strings(), nil)
+
 		require.NoError(suite.T(), err)
 
 		// create another block as a predecessor of the block created earlier
