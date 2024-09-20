@@ -359,12 +359,8 @@ func (suite *Suite) TestLookupTransactionErrorMessageByTransactionID_HappyPath()
 
 	// Test case: transaction error message is fetched from the EN.
 	suite.Run("happy path from EN", func() {
-		// create a mock connection factory
-		connFactory := connectionmock.NewConnectionFactory(suite.T())
-		connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 		// the connection factory should be used to get the execution node client
-		params.ConnFactory = connFactory
+		params.ConnFactory = suite.setupConnectionFactory()
 		params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 
 		// Mock the cache lookup for the transaction error message, returning "not found".
@@ -432,10 +428,6 @@ func (suite *Suite) TestLookupTransactionErrorMessageByTransactionID_FailedToFet
 	suite.state.On("Final").Return(suite.snapshot, nil).Maybe()
 	suite.snapshot.On("Identities", mock.Anything).Return(fixedENIDs, nil)
 
-	// Create a mock connection factory
-	connFactory := connectionmock.NewConnectionFactory(suite.T())
-	connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 	// Create a mock index reporter
 	reporter := syncmock.NewIndexReporter(suite.T())
 	reporter.On("LowestIndexedHeight").Return(block.Header.Height, nil)
@@ -443,7 +435,7 @@ func (suite *Suite) TestLookupTransactionErrorMessageByTransactionID_FailedToFet
 
 	params := suite.defaultBackendParams()
 	// The connection factory should be used to get the execution node client
-	params.ConnFactory = connFactory
+	params.ConnFactory = suite.setupConnectionFactory()
 	// Initialize the transaction results index with the mock reporter.
 	params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 
@@ -563,12 +555,8 @@ func (suite *Suite) TestLookupTransactionErrorMessageByIndex_HappyPath() {
 
 	// Test case: transaction error message is fetched from the EN.
 	suite.Run("happy path from EN", func() {
-		// create a mock connection factory
-		connFactory := connectionmock.NewConnectionFactory(suite.T())
-		connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 		// the connection factory should be used to get the execution node client
-		params.ConnFactory = connFactory
+		params.ConnFactory = suite.setupConnectionFactory()
 		params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 
 		// Mock the cache lookup for the transaction error message, returning "not found".
@@ -768,12 +756,8 @@ func (suite *Suite) TestLookupTransactionErrorMessagesByBlockID_HappyPath() {
 
 	// Test case: transaction error messages is fetched from the EN.
 	suite.Run("happy path from EN", func() {
-		// create a mock connection factory
-		connFactory := connectionmock.NewConnectionFactory(suite.T())
-		connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 		// the connection factory should be used to get the execution node client
-		params.ConnFactory = connFactory
+		params.ConnFactory = suite.setupConnectionFactory()
 		params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 
 		// Mock the cache lookup for the transaction error messages, returning "not found".
@@ -865,10 +849,6 @@ func (suite *Suite) TestLookupTransactionErrorMessagesByBlockID_FailedToFetch() 
 	suite.state.On("Final").Return(suite.snapshot, nil).Maybe()
 	suite.snapshot.On("Identities", mock.Anything).Return(fixedENIDs, nil)
 
-	// Create a mock connection factory
-	connFactory := connectionmock.NewConnectionFactory(suite.T())
-	connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 	// Create a mock index reporter
 	reporter := syncmock.NewIndexReporter(suite.T())
 	reporter.On("LowestIndexedHeight").Return(block.Header.Height, nil)
@@ -876,7 +856,7 @@ func (suite *Suite) TestLookupTransactionErrorMessagesByBlockID_FailedToFetch() 
 
 	params := suite.defaultBackendParams()
 	// the connection factory should be used to get the execution node client
-	params.ConnFactory = connFactory
+	params.ConnFactory = suite.setupConnectionFactory()
 	params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 
 	// Initialize the transaction results index with the mock reporter.
@@ -1046,13 +1026,9 @@ func (suite *Suite) TestGetSystemTransactionResult_HappyPath() {
 			On("ByBlockID", block.ID()).
 			Return(flow.ExecutionReceiptList{receipt1}, nil)
 
-		// create a mock connection factory
-		connFactory := connectionmock.NewConnectionFactory(suite.T())
-		connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 		// the connection factory should be used to get the execution node client
 		params := suite.defaultBackendParams()
-		params.ConnFactory = connFactory
+		params.ConnFactory = suite.setupConnectionFactory()
 
 		exeEventReq := &execproto.GetTransactionsByBlockIDRequest{
 			BlockId: blockID[:],
@@ -1175,13 +1151,9 @@ func (suite *Suite) TestGetSystemTransactionResult_FailedEncodingConversion() {
 			On("ByBlockID", block.ID()).
 			Return(flow.ExecutionReceiptList{receipt1}, nil)
 
-		// create a mock connection factory
-		connFactory := connectionmock.NewConnectionFactory(suite.T())
-		connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 		// the connection factory should be used to get the execution node client
 		params := suite.defaultBackendParams()
-		params.ConnFactory = connFactory
+		params.ConnFactory = suite.setupConnectionFactory()
 
 		exeEventReq := &execproto.GetTransactionsByBlockIDRequest{
 			BlockId: blockID[:],
@@ -1299,10 +1271,6 @@ func (suite *Suite) TestTransactionResultFromStorage() {
 	suite.snapshot.On("Identities", mock.Anything).Return(fixedENIDs, nil)
 	suite.snapshot.On("Head", mock.Anything).Return(block.Header, nil)
 
-	// create a mock connection factory
-	connFactory := connectionmock.NewConnectionFactory(suite.T())
-	connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 	// create a mock index reporter
 	reporter := syncmock.NewIndexReporter(suite.T())
 	reporter.On("LowestIndexedHeight").Return(block.Header.Height, nil)
@@ -1311,7 +1279,7 @@ func (suite *Suite) TestTransactionResultFromStorage() {
 	// Set up the backend parameters and the backend instance
 	params := suite.defaultBackendParams()
 	// the connection factory should be used to get the execution node client
-	params.ConnFactory = connFactory
+	params.ConnFactory = suite.setupConnectionFactory()
 	params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 	params.TxResultQueryMode = IndexQueryModeLocalOnly
 
@@ -1391,10 +1359,6 @@ func (suite *Suite) TestTransactionByIndexFromStorage() {
 	suite.snapshot.On("Identities", mock.Anything).Return(fixedENIDs, nil)
 	suite.snapshot.On("Head", mock.Anything).Return(block.Header, nil)
 
-	// Create a mock connection factory
-	connFactory := connectionmock.NewConnectionFactory(suite.T())
-	connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 	// create a mock index reporter
 	reporter := syncmock.NewIndexReporter(suite.T())
 	reporter.On("LowestIndexedHeight").Return(block.Header.Height, nil)
@@ -1403,7 +1367,7 @@ func (suite *Suite) TestTransactionByIndexFromStorage() {
 	// Set up the backend parameters and the backend instance
 	params := suite.defaultBackendParams()
 	// the connection factory should be used to get the execution node client
-	params.ConnFactory = connFactory
+	params.ConnFactory = suite.setupConnectionFactory()
 	params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 	params.TxResultQueryMode = IndexQueryModeLocalOnly
 
@@ -1489,10 +1453,6 @@ func (suite *Suite) TestTransactionResultsByBlockIDFromStorage() {
 	suite.snapshot.On("Identities", mock.Anything).Return(fixedENIDs, nil)
 	suite.snapshot.On("Head", mock.Anything).Return(block.Header, nil)
 
-	// create a mock connection factory
-	connFactory := connectionmock.NewConnectionFactory(suite.T())
-	connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
-
 	// create a mock index reporter
 	reporter := syncmock.NewIndexReporter(suite.T())
 	reporter.On("LowestIndexedHeight").Return(block.Header.Height, nil)
@@ -1501,7 +1461,7 @@ func (suite *Suite) TestTransactionResultsByBlockIDFromStorage() {
 	// Set up the state and snapshot mocks and the backend instance
 	params := suite.defaultBackendParams()
 	// the connection factory should be used to get the execution node client
-	params.ConnFactory = connFactory
+	params.ConnFactory = suite.setupConnectionFactory()
 	params.FixedExecutionNodeIDs = fixedENIDs.NodeIDs().Strings()
 
 	params.EventsIndex = NewEventsIndex(suite.events)
