@@ -435,8 +435,7 @@ func (e *Engine) storeTransactionResultErrorMessages(
 	errorMessagesResponses []*execproto.GetTransactionErrorMessagesResponse_Result,
 	execNode *flow.Identity,
 ) error {
-	errorMessages := make([]flow.TransactionResultErrorMessage, len(errorMessagesResponses))
-
+	errorMessages := make([]flow.TransactionResultErrorMessage, 0)
 	for _, value := range errorMessagesResponses {
 		errorMessage := flow.TransactionResultErrorMessage{
 			ErrorMessage:  value.ErrorMessage,
