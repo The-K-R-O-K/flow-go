@@ -1003,9 +1003,6 @@ func (suite *Suite) TestExecuteScript() {
 		connFactory := connectionmock.NewConnectionFactory(suite.T())
 		connFactory.On("GetExecutionAPIClient", mock.Anything).Return(suite.execClient, &mockCloser{}, nil)
 
-		enIdentities := unittest.IdentityListFixture(2, unittest.WithRole(flow.RoleExecution))
-		enNodeIDs := enIdentities.NodeIDs()
-
 		var err error
 		suite.backend, err = backend.New(backend.Params{
 			State:                 suite.state,
@@ -1056,7 +1053,7 @@ func (suite *Suite) TestExecuteScript() {
 			Once()
 		// create the ingest engine
 		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
-			transactions, results, receipts, nil, collectionExecutedMetric, suite.backend, enNodeIDs.Strings(), nil)
+			transactions, results, receipts, nil, collectionExecutedMetric, suite.backend, nil, identities.NodeIDs().Strings())
 
 		require.NoError(suite.T(), err)
 
