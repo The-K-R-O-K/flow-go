@@ -102,7 +102,7 @@ func (suite *Suite) SetupTest() {
 	suite.collections = new(storagemock.Collections)
 	suite.receipts = new(storagemock.ExecutionReceipts)
 	suite.results = new(storagemock.ExecutionResults)
-	suite.txErrorMessages = new(storagemock.TransactionResultErrorMessages)
+	suite.txErrorMessages = storagemock.NewTransactionResultErrorMessages(suite.T())
 	suite.colClient = new(access.AccessAPIClient)
 	suite.execClient = new(access.ExecutionAPIClient)
 	suite.transactionResults = storagemock.NewLightTransactionResults(suite.T())
