@@ -206,6 +206,8 @@ func (s *Suite) initIngestionEngine(ctx irrecoverable.SignalerContext) *Engine {
 	return eng
 }
 
+// TODO: TestOnFinalizedBlockSingle missing test
+
 // TestOnFinalizedBlock checks that when a block is received, a request for each individual collection is made
 func (s *Suite) TestOnFinalizedBlock() {
 	s.blocks.On("GetLastFullBlockHeight").Return(uint64(0), nil).Once()

@@ -216,7 +216,7 @@ func New(
 		AddWorker(e.processExecutionReceipts).
 		AddWorker(e.runFinalizedBlockConsumer).
 		AddWorker(e.processTransactionResultErrorMessages).
-		AddWorker(e.processFinalizedBlocks).
+		AddWorker(e.processFinalizedBlocks). // processFinalizedBlockJob
 		Build()
 
 	// register engine with the execution receipt provider
@@ -284,8 +284,9 @@ func (e *Engine) processFinalizedBlockJob(ctx irrecoverable.SignalerContext, job
 	if err != nil {
 		ctx.Throw(fmt.Errorf("failed to convert job to block: %w", err))
 	}
-	err = e.processFinalizedBlock(block)
+	err = e.processFinalizedBlock(ctx, block)
 	if err == nil {
+		s
 		done()
 		return
 	}
@@ -404,7 +405,7 @@ func (e *Engine) processAvailableFinalizedBlocks(ctx context.Context) error {
 		hb := msg.Payload.(*model.Block)
 		blockID := hb.BlockID
 
-		if err := e.processFinalizedBlock(ctx, hb); err != nil {
+		if err := e.processFinalizedBlock(ctx); err != nil {
 			e.log.Error().Err(err).Hex("block_id", blockID[:]).Msg("failed to process block")
 			continue
 		}
