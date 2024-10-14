@@ -141,7 +141,17 @@ func (s *Suite) SetupTest() {
 	)
 	require.NoError(s.T(), err)
 
+<<<<<<< HEAD
 	s.blocks.On("GetLastFullBlockHeight").Once().Return(uint64(0), errors.New("do nothing"))
+=======
+// initIngestionEngine create new instance of ingestion engine and waits when it starts
+func (s *Suite) initIngestionEngine(ctx irrecoverable.SignalerContext) *Engine {
+	processedHeight := bstorage.NewConsumerProgress(s.db, module.ConsumeProgressIngestionEngineBlockHeight)
+	processedTxErrorMessagesBlockHeight := bstorage.NewConsumerProgress(
+		s.db,
+		module.ConsumeProgressIngestionEngineTxErrorMessagesBlockHeight,
+	)
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 
 	eng, err := New(
 		s.log,
@@ -192,6 +202,12 @@ func (s *Suite) initIngestionEngine(ctx irrecoverable.SignalerContext) *Engine {
 		s.receipts,
 		s.txErrorMessages,
 		s.collectionExecutedMetric,
+<<<<<<< HEAD
+=======
+		processedHeight,
+		processedTxErrorMessagesBlockHeight,
+		s.lastFullBlockHeight,
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 		s.backend,
 		s.enNodeIDs.Strings(),
 		nil,
@@ -234,12 +250,30 @@ func (s *Suite) TestOnFinalizedBlock() {
 		BlockID: block.ID(),
 	}
 
+<<<<<<< HEAD
 	// we should query the block once and index the guarantee payload once
 	s.blocks.On("ByID", block.ID()).Return(&block, nil).Twice()
 	for _, g := range block.Payload.Guarantees {
 		collection := unittest.CollectionFixture(1)
 		light := collection.Light()
 		s.collections.On("LightByID", g.CollectionID).Return(&light, nil).Twice()
+=======
+	// expect that the block storage is indexed with each of the collection guarantee
+	s.blocks.On("IndexBlockForCollections", block.ID(), []flow.Identifier(flow.GetIDs(block.Payload.Guarantees))).Return(nil).Once()
+	for _, seal := range block.Payload.Seals {
+		s.results.On("Index", seal.BlockID, seal.ResultID).Return(nil).Once()
+	}
+
+	missingCollectionCount := 4
+	wg := sync.WaitGroup{}
+	wg.Add(missingCollectionCount)
+
+	for _, cg := range block.Payload.Guarantees {
+		s.request.On("EntityByID", cg.CollectionID, mock.Anything).Return().Run(func(args mock.Arguments) {
+			// Ensure the test does not complete its work faster than necessary
+			wg.Done()
+		}).Once()
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 	}
 
 	// expect that the block storage is indexed with each of the collection guarantee
@@ -265,6 +299,7 @@ func (s *Suite) TestOnFinalizedBlock() {
 	wg := sync.WaitGroup{}
 	wg.Add(4)
 
+<<<<<<< HEAD
 	s.request.On("EntityByID", mock.Anything, mock.Anything).Run(
 		func(args mock.Arguments) {
 			collID := args.Get(0).(flow.Identifier)
@@ -274,6 +309,22 @@ func (s *Suite) TestOnFinalizedBlock() {
 			wg.Done()
 		},
 	)
+=======
+		for _, cg := range block.Payload.Guarantees {
+			s.request.On("EntityByID", cg.CollectionID, mock.Anything).Return().Run(func(args mock.Arguments) {
+				// Ensure the test does not complete its work faster than necessary, so we can check all expected results
+				wg.Done()
+			}).Once()
+		}
+		for _, seal := range block.Payload.Seals {
+			s.results.On("Index", seal.BlockID, seal.ResultID).Return(nil).Once()
+		}
+	}
+
+	eng.OnFinalizedBlock(&hotstuffBlock)
+
+	unittest.RequireReturnsBefore(s.T(), wg.Wait, 100*time.Millisecond, "expect to process all blocks before timeout")
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 
 	// process the block through the finalized callback
 	s.eng.OnFinalizedBlock(&hotstuffBlock)

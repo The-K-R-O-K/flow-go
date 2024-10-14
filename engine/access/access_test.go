@@ -671,6 +671,12 @@ func (suite *Suite) TestGetSealedTransaction() {
 		require.NoError(suite.T(), err)
 
 		// create the ingest engine
+<<<<<<< HEAD
+=======
+		processedHeight := bstorage.NewConsumerProgress(db, module.ConsumeProgressIngestionEngineBlockHeight)
+		processedTxErrorMessagesBlockHeight := bstorage.NewConsumerProgress(db, module.ConsumeProgressIngestionEngineTxErrorMessagesBlockHeight)
+
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 		ingestEng, err := ingestion.New(
 			suite.log,
 			suite.net,
@@ -685,6 +691,12 @@ func (suite *Suite) TestGetSealedTransaction() {
 			receipts,
 			nil,
 			collectionExecutedMetric,
+<<<<<<< HEAD
+=======
+			processedHeight,
+			processedTxErrorMessagesBlockHeight,
+			lastFullBlockHeight,
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 			bnd,
 			enNodeIDs.Strings(),
 			nil,
@@ -835,9 +847,43 @@ func (suite *Suite) TestGetTransactionResult() {
 		)
 		require.NoError(suite.T(), err)
 
+<<<<<<< HEAD
 		// create the ingest engine
 		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
 			transactions, results, receipts, nil, collectionExecutedMetric, bnd, enNodeIDs.Strings(), nil)
+=======
+		processedHeight := bstorage.NewConsumerProgress(db, module.ConsumeProgressIngestionEngineBlockHeight)
+		processedTxErrorMessagesBlockHeight := bstorage.NewConsumerProgress(db, module.ConsumeProgressIngestionEngineTxErrorMessagesBlockHeight)
+
+		lastFullBlockHeight, err := counters.NewPersistentStrictMonotonicCounter(
+			bstorage.NewConsumerProgress(db, module.ConsumeProgressLastFullBlockHeight),
+			suite.rootBlock.Height,
+		)
+		require.NoError(suite.T(), err)
+
+		// create the ingest engine
+		ingestEng, err := ingestion.New(
+			suite.log,
+			suite.net,
+			suite.state,
+			suite.me,
+			suite.request,
+			all.Blocks,
+			all.Headers,
+			collections,
+			transactions,
+			results,
+			receipts,
+			nil,
+			collectionExecutedMetric,
+			processedHeight,
+			processedTxErrorMessagesBlockHeight,
+			lastFullBlockHeight,
+			bnd,
+			enNodeIDs.Strings(),
+			nil,
+		)
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 		require.NoError(suite.T(), err)
 
 		background, cancel := context.WithCancel(context.Background())
@@ -1051,10 +1097,45 @@ func (suite *Suite) TestExecuteScript() {
 		conduit := new(mocknetwork.Conduit)
 		suite.net.On("Register", channels.ReceiveReceipts, mock.Anything).Return(conduit, nil).
 			Once()
+<<<<<<< HEAD
 		// create the ingest engine
 		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
 			transactions, results, receipts, nil, collectionExecutedMetric, suite.backend, nil, identities.NodeIDs().Strings())
 
+=======
+
+		processedHeight := bstorage.NewConsumerProgress(db, module.ConsumeProgressIngestionEngineBlockHeight)
+		processedTxErrorMessagesBlockHeight := bstorage.NewConsumerProgress(db, module.ConsumeProgressIngestionEngineTxErrorMessagesBlockHeight)
+
+		lastFullBlockHeight, err := counters.NewPersistentStrictMonotonicCounter(
+			bstorage.NewConsumerProgress(db, module.ConsumeProgressLastFullBlockHeight),
+			suite.rootBlock.Height,
+		)
+		require.NoError(suite.T(), err)
+
+		// create the ingest engine
+		ingestEng, err := ingestion.New(
+			suite.log,
+			suite.net,
+			suite.state,
+			suite.me,
+			suite.request,
+			all.Blocks,
+			all.Headers,
+			collections,
+			transactions,
+			results,
+			receipts,
+			nil,
+			collectionExecutedMetric,
+			processedHeight,
+			processedTxErrorMessagesBlockHeight,
+			lastFullBlockHeight,
+			suite.backend,
+			nil,
+			identities.NodeIDs().Strings(),
+		)
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 		require.NoError(suite.T(), err)
 
 		// create another block as a predecessor of the block created earlier

@@ -1380,6 +1380,9 @@ func (builder *FlowAccessNodeBuilder) enqueueRelayNetwork() {
 }
 
 func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
+	var processedFinalizedBlockHeight storage.ConsumerProgress
+	var processedTxErrorMessagesBlockHeight storage.ConsumerProgress
+
 	if builder.executionDataSyncEnabled {
 		builder.BuildExecutionSyncComponents()
 	}
@@ -1558,6 +1561,31 @@ func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
 		}).
 		Module("transaction result index", func(node *cmd.NodeConfig) error {
 			builder.TxResultsIndex = backend.NewTransactionResultsIndex(builder.Storage.LightTransactionResults)
+			//builder.TxResultsIndex = index.NewTransactionResultsIndex(builder.Reporter, builder.Storage.LightTransactionResults) // Do we need to change NewTransactionResultsIndex
+			return nil
+		}).
+		Module("processed finalized block height consumer progress", func(node *cmd.NodeConfig) error {
+			processedFinalizedBlockHeight = bstorage.NewConsumerProgress(builder.DB, module.ConsumeProgressIngestionEngineBlockHeight)
+			return nil
+		}).
+		Module("processed error messages block height consumer progress", func(node *cmd.NodeConfig) error {
+			processedTxErrorMessagesBlockHeight = bstorage.NewConsumerProgress(
+				builder.DB,
+				module.ConsumeProgressIngestionEngineTxErrorMessagesBlockHeight,
+			)
+			return nil
+		}).
+		Module("processed last full block height monotonic consumer progress", func(node *cmd.NodeConfig) error {
+			rootBlockHeight := node.State.Params().FinalizedRoot().Height
+
+			var err error
+			lastFullBlockHeight, err = counters.NewPersistentStrictMonotonicCounter(
+				bstorage.NewConsumerProgress(builder.DB, module.ConsumeProgressLastFullBlockHeight),
+				rootBlockHeight,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to initialize monotonic consumer progress: %w", err)
+			}
 			return nil
 		}).
 		Module("transaction result error messages storage", func(node *cmd.NodeConfig) error {
@@ -1714,6 +1742,12 @@ func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
 				node.Storage.Receipts,
 				node.Storage.TransactionResultErrorMessages,
 				builder.collectionExecutedMetric,
+<<<<<<< HEAD
+=======
+				processedFinalizedBlockHeight,
+				processedTxErrorMessagesBlockHeight,
+				lastFullBlockHeight,
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 				builder.nodeBackend,
 				builder.rpcConf.BackendConfig.PreferredExecutionNodeIDs,
 				builder.rpcConf.BackendConfig.FixedExecutionNodeIDs,

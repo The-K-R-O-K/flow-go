@@ -12,6 +12,13 @@ const (
 	ConsumeProgressExecutionDataRequesterNotification = "ConsumeProgressExecutionDataRequesterNotification"
 
 	ConsumeProgressExecutionDataIndexerBlockHeight = "ConsumeProgressExecutionDataIndexerBlockHeight"
+<<<<<<< HEAD
+=======
+
+	ConsumeProgressIngestionEngineBlockHeight                = "ConsumeProgressIngestionEngineBlockHeight"
+	ConsumeProgressIngestionEngineTxErrorMessagesBlockHeight = "ConsumeProgressIngestionEngineTxErrorMessagesBlockHeight"
+	ConsumeProgressLastFullBlockHeight                       = "ConsumeProgressLastFullBlockHeight"
+>>>>>>> bee6180b4a... Updated process of handling transaction error messages by creting new jobqueque, updated tests
 )
 
 // JobID is a unique ID of the job.
