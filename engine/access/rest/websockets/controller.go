@@ -19,7 +19,7 @@ import (
 type Controller struct {
 	logger               zerolog.Logger
 	config               Config
-	conn                 *websocket.Conn
+	conn                 WebsocketConnection
 	communicationChannel chan interface{}
 	dataProviders        *concurrentmap.Map[uuid.UUID, dp.DataProvider]
 	dataProvidersFactory *dp.Factory
@@ -30,7 +30,7 @@ func NewWebSocketController(
 	config Config,
 	streamApi state_stream.API,
 	streamConfig backend.Config,
-	conn *websocket.Conn,
+	conn WebsocketConnection,
 ) *Controller {
 	return &Controller{
 		logger:               logger.With().Str("component", "websocket-controller").Logger(),
@@ -59,7 +59,11 @@ func (c *Controller) writeMessagesToClient(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-c.communicationChannel:
+		case msg, ok := <-c.communicationChannel:
+			if !ok {
+				c.logger.Error().Msg("communication channel closed")
+				return
+			}
 			// TODO: handle 'response per second' limits
 
 			err := c.conn.WriteJSON(msg)
@@ -194,7 +198,7 @@ func (c *Controller) handleListSubscriptions(ctx context.Context, msg models.Lis
 
 func (c *Controller) shutdownConnection() {
 	defer close(c.communicationChannel)
-	defer func(conn *websocket.Conn) {
+	defer func(conn WebsocketConnection) {
 		if err := c.conn.Close(); err != nil {
 			c.logger.Error().Err(err).Msg("error closing connection")
 		}
