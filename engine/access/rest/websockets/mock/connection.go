@@ -2,37 +2,30 @@ package mock
 
 import (
 	"errors"
+
 	"github.com/onflow/flow-go/engine/access/rest/websockets"
 )
 
+//TODO: we have to use read and write socket for sure
+
 type WebsocketConnectionMock struct {
-	socket chan interface{}
-	echo   chan interface{}
-	closed bool
+	readSocket  chan interface{}
+	writeSocket chan interface{}
+	closed      bool
 }
 
 var _ websockets.WebsocketConnection = (*WebsocketConnectionMock)(nil)
 
 func NewWebsocketConnectionMock() *WebsocketConnectionMock {
 	return &WebsocketConnectionMock{
-		socket: make(chan interface{}),
-		echo:   make(chan interface{}),
-		closed: false,
+		readSocket:  make(chan interface{}, 20),
+		writeSocket: make(chan interface{}, 20),
+		closed:      false,
 	}
-}
-
-func (m *WebsocketConnectionMock) ReadJSONFromEchoSocket(value interface{}) error {
-	val, ok := <-m.echo
-	if !ok {
-		return errors.New("cannot read from closed connection")
-	}
-
-	value = val
-	return nil
 }
 
 func (m *WebsocketConnectionMock) ReadJSON(value interface{}) error {
-	val, ok := <-m.socket
+	val, ok := <-m.readSocket
 	if !ok {
 		return errors.New("cannot read from closed connection")
 	}
@@ -46,15 +39,12 @@ func (m *WebsocketConnectionMock) WriteJSON(value interface{}) error {
 		return errors.New("cannot write to closed connection")
 	}
 
-	m.socket <- value
-	m.echo <- value
+	m.readSocket <- value
 	return nil
 }
 
 func (m *WebsocketConnectionMock) Close() error {
-	close(m.socket)
-	close(m.echo)
+	close(m.readSocket)
 	m.closed = true
-
 	return nil
 }

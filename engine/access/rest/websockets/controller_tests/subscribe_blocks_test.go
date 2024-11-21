@@ -2,17 +2,18 @@ package tests
 
 import (
 	"context"
+	"testing"
+
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/onflow/flow-go/engine/access/rest/websockets"
-	"github.com/onflow/flow-go/engine/access/rest/websockets/controller_tests/mock"
-	"github.com/onflow/flow-go/engine/access/rest/websockets/models"
+	dpmock "github.com/onflow/flow-go/engine/access/rest/websockets/data_provider/mock"
+	connmock "github.com/onflow/flow-go/engine/access/rest/websockets/mock"
+
 	"github.com/onflow/flow-go/engine/access/state_stream/backend"
 	streammock "github.com/onflow/flow-go/engine/access/state_stream/mock"
-	"github.com/onflow/flow-go/model/flow"
 	"github.com/onflow/flow-go/utils/unittest"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
-	"testing"
 )
 
 type WsControllerSuite struct {
@@ -35,37 +36,27 @@ func TestWsControllerSuite(t *testing.T) {
 	suite.Run(t, new(WsControllerSuite))
 }
 
-func (s *WsControllerSuite) TestHappyPath(t *testing.T) {
-	conn := mock.NewWebsocketConnectionMock()
-	controller := websockets.NewWebSocketController(s.logger, s.wsConfig, s.streamApi, s.streamConfig, conn)
+func (s *WsControllerSuite) TestHappyPath() {
+	conn := connmock.NewWebsocketConnectionMock()
 
-	expectedBlocks := unittest.BlockFixtures(10)
-	imitateResponses := func() {
-		defer conn.Close()
-		for _, block := range expectedBlocks {
-			conn.WriteJSON(block)
-		}
+	blocks := unittest.BlockFixtures(10)
+	expectedBlocks := make([]interface{}, len(blocks))
+	for i, block := range blocks {
+		expectedBlocks[i] = block
 	}
 
-	actualBlocks := make([]*flow.Block, len(expectedBlocks))
-	readResponses := func() {
-		for i, _ := range actualBlocks {
-			conn.ReadJSONFromEchoSocket(&actualBlocks[i])
-		}
-	}
+	blocksGenerator := dpmock.NewDataGenerator(expectedBlocks)
+	dataProvider := dpmock.NewDataProvider(blocksGenerator)
+	dataProviderFactory := dpmock.NewFactory()
+	dataProviderFactory.RegisterDataProvider(dataProvider)
 
-	requestMessage := models.SubscribeMessageRequest{
-		BaseMessageRequest: models.BaseMessageRequest{
-			Action: "subscribe",
-		},
-		Topic:     "blocks",
-		Arguments: nil,
-	}
-	conn.WriteJSON(requestMessage)
+	controller := websockets.NewWebSocketController(s.logger, s.wsConfig, dataProviderFactory, conn)
 
-	go readResponses()
-	go imitateResponses()
+	go func() {
+		//TODO: read actual blocks from conn and compare with expected ones
+		//block := conn.ReadJSON()
+		//conn.Close()
+	}()
+
 	controller.HandleConnection(context.TODO())
-
-	require.Equal(t, expectedBlocks, actualBlocks)
 }

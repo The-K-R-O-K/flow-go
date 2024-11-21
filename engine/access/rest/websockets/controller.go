@@ -11,8 +11,6 @@ import (
 
 	dp "github.com/onflow/flow-go/engine/access/rest/websockets/data_provider"
 	"github.com/onflow/flow-go/engine/access/rest/websockets/models"
-	"github.com/onflow/flow-go/engine/access/state_stream"
-	"github.com/onflow/flow-go/engine/access/state_stream/backend"
 	"github.com/onflow/flow-go/utils/concurrentmap"
 )
 
@@ -22,23 +20,22 @@ type Controller struct {
 	conn                 WebsocketConnection
 	communicationChannel chan interface{}
 	dataProviders        *concurrentmap.Map[uuid.UUID, dp.DataProvider]
-	dataProvidersFactory *dp.Factory
+	dataProvidersFactory dp.Factory
 }
 
 func NewWebSocketController(
 	logger zerolog.Logger,
 	config Config,
-	streamApi state_stream.API,
-	streamConfig backend.Config,
+	factory dp.Factory,
 	conn WebsocketConnection,
 ) *Controller {
 	return &Controller{
 		logger:               logger.With().Str("component", "websocket-controller").Logger(),
 		config:               config,
 		conn:                 conn,
-		communicationChannel: make(chan interface{}), //TODO: should it be buffered chan?
+		communicationChannel: make(chan interface{}, 10), //TODO: should it be buffered chan?
 		dataProviders:        concurrentmap.New[uuid.UUID, dp.DataProvider](),
-		dataProvidersFactory: dp.NewDataProviderFactory(logger, streamApi, streamConfig),
+		dataProvidersFactory: factory,
 	}
 }
 
@@ -85,7 +82,7 @@ func (c *Controller) readMessagesFromClient(ctx context.Context) {
 			c.logger.Info().Msg("context canceled, stopping read message loop")
 			return
 		default:
-			msg, err := c.readMessage()
+			msg, err := c.readMessageFromConn()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
 					return
@@ -107,11 +104,12 @@ func (c *Controller) readMessagesFromClient(ctx context.Context) {
 	}
 }
 
-func (c *Controller) readMessage() (json.RawMessage, error) {
+func (c *Controller) readMessageFromConn() (json.RawMessage, error) {
 	var message json.RawMessage
 	if err := c.conn.ReadJSON(&message); err != nil {
 		return nil, fmt.Errorf("error reading JSON from client: %w", err)
 	}
+
 	return message, nil
 }
 
