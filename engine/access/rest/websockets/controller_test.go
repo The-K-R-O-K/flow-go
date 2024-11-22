@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -74,16 +72,14 @@ func (s *WsControllerSuite) AttachSubscribedConnection(conn *connmock.WebsocketC
 	return conn
 }
 
-func (s *WsControllerSuite) AttachClosedConnection(conn *connmock.WebsocketConnection) *connmock.WebsocketConnection {
-	// we imitate closed connection on conn.Write() to make sure we wrote all data to a client.
-	// if we did it on conn.Read() we might have stop controller before writing all data to a client
+func (s *WsControllerSuite) AttachEmptyConnection(conn *connmock.WebsocketConnection) *connmock.WebsocketConnection {
 	conn.
 		On("ReadJSON", mock.Anything).
-		Return(websocket.ErrCloseSent)
+		Return(nil)
 
 	conn.
 		On("WriteJSON", mock.Anything).
-		Return(websocket.ErrCloseSent)
+		Return(nil)
 
 	return conn
 }
@@ -114,23 +110,25 @@ func (s *WsControllerSuite) TestSubscribeBlocks() {
 		}).
 		Once()
 
-	conn = s.AttachSubscribedConnection(conn, "blocks")
+	s.AttachSubscribedConnection(conn, "blocks")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var actualBlock flow.Block
 
 	// controller reads a block from data provider and pass it on to a client
-	var actualBlock flow.Block
 	conn.
 		On("WriteJSON", mock.Anything).
 		Run(func(args mock.Arguments) {
 			block := args.Get(0).(flow.Block)
 			actualBlock = block
+			cancel() // stop provider after this func
 		}).
 		Return(nil).
 		Once()
 
-	conn = s.AttachClosedConnection(conn)
+	s.AttachEmptyConnection(conn)
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
-	defer cancel()
+	// blocking call until the connection is closed by reader or writer
 	controller.HandleConnection(ctx)
 
 	require.Equal(s.T(), expectedBlock, actualBlock)

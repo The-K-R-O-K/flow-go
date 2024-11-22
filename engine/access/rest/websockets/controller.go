@@ -3,6 +3,7 @@ package websockets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/onflow/flow-go/engine/access/rest/websockets/models"
 	"github.com/onflow/flow-go/utils/concurrentmap"
 )
+
+var ErrEmptyMessage = errors.New("empty message")
 
 type Controller struct {
 	logger               zerolog.Logger
@@ -46,41 +49,47 @@ func NewWebSocketController(
 func (c *Controller) HandleConnection(ctx context.Context) {
 	//TODO: configure the connection with ping-pong and deadlines
 	//TODO: spin up a response limit tracker routine
-	go c.readMessagesFromClient(ctx)
-	c.writeMessagesToClient(ctx)
+	go c.readMessages(ctx)
+	c.writeMessages(ctx)
 }
 
-// writeMessagesToClient reads a messages from communication channel and passes them on to a client WebSocket connection.
+// writeMessages reads a messages from communication channel and passes them on to a client WebSocket connection.
 // The communication channel is filled by data providers. Besides, the response limit tracker is involved in
 // write message regulation
-func (c *Controller) writeMessagesToClient(ctx context.Context) {
+func (c *Controller) writeMessages(ctx context.Context) {
+	defer c.shutdownConnection()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case msg, ok := <-c.communicationChannel:
 			if !ok {
-				c.shutdownConnection()
 				return
 			}
-			// TODO: handle 'response per second' limits
 
+			// TODO: handle 'response per second' limits
 			err := c.conn.WriteJSON(msg)
 			if err != nil {
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					c.shutdownConnection()
+				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) ||
+					websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 					return
 				}
 
 				c.logger.Error().Err(err).Msg("error writing to connection")
+				return
 			}
+
+			c.logger.Debug().Msg("written message to client")
 		}
 	}
 }
 
-// readMessagesFromClient continuously reads messages from a client WebSocket connection,
+// readMessages continuously reads messages from a client WebSocket connection,
 // processes each message, and handles actions based on the message type.
-func (c *Controller) readMessagesFromClient(ctx context.Context) {
+func (c *Controller) readMessages(ctx context.Context) {
+	defer c.shutdownConnection()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -88,31 +97,31 @@ func (c *Controller) readMessagesFromClient(ctx context.Context) {
 		default:
 			msg, err := c.readMessageFromConn() //TODO: read is blocking, so there's no point in ctx.Done(), right?
 			if err != nil {
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
-					c.shutdownConnection()
+				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) ||
+					websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 					return
 				}
 
-				if err.Error() == "message is empty" {
+				if errors.Is(err, ErrEmptyMessage) {
 					continue
 				}
 
-				c.logger.Warn().Err(err).Msg("error reading message from client")
-				continue
+				c.logger.Debug().Err(err).Msg("error reading message from client")
+				return
 			}
 
 			baseMsg, validatedMsg, err := c.parseAndValidateMessage(msg)
 			if err != nil {
 				c.logger.Debug().Err(err).Msg("error parsing and validating client message")
-				c.shutdownConnection()
 				return
 			}
 
 			if err := c.handleAction(ctx, validatedMsg); err != nil {
-				c.logger.Warn().Err(err).Str("action", baseMsg.Action).Msg("error handling action")
-				c.shutdownConnection()
+				c.logger.Debug().Err(err).Str("action", baseMsg.Action).Msg("error handling action")
 				return
 			}
+
+			c.logger.Debug().Str("action", baseMsg.Action).Msg("handled action")
 		}
 	}
 }
@@ -124,7 +133,7 @@ func (c *Controller) readMessageFromConn() (json.RawMessage, error) {
 	}
 
 	if message == nil {
-		return nil, fmt.Errorf("message is empty")
+		return nil, ErrEmptyMessage
 	}
 
 	return message, nil
@@ -217,6 +226,10 @@ func (c *Controller) handleUnsubscribe(_ context.Context, msg models.Unsubscribe
 
 func (c *Controller) handleListSubscriptions(ctx context.Context, msg models.ListSubscriptionsMessageRequest) {
 	//TODO: return a response to client
+}
+
+func (c *Controller) Close() {
+	c.shutdownConnection()
 }
 
 func (c *Controller) shutdownConnection() {

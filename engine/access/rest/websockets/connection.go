@@ -30,6 +30,10 @@ func (m *GorillaWebsocketConnection) WriteJSON(v interface{}) error {
 	return m.conn.WriteJSON(v)
 }
 
+func (m *GorillaWebsocketConnection) SetCloseHandler(handler func(code int, text string) error) {
+	m.conn.SetCloseHandler(handler)
+}
+
 func (m *GorillaWebsocketConnection) Close() error {
 	return m.conn.Close()
 }

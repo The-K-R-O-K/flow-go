@@ -45,6 +45,43 @@ func (_m *WebsocketConnection) ReadJSON(v interface{}) error {
 	return r0
 }
 
+// ReadMessage provides a mock function with given fields:
+func (_m *WebsocketConnection) ReadMessage() (int, []byte, error) {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReadMessage")
+	}
+
+	var r0 int
+	var r1 []byte
+	var r2 error
+	if rf, ok := ret.Get(0).(func() (int, []byte, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func() []byte); ok {
+		r1 = rf()
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func() error); ok {
+		r2 = rf()
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // WriteJSON provides a mock function with given fields: v
 func (_m *WebsocketConnection) WriteJSON(v interface{}) error {
 	ret := _m.Called(v)
@@ -56,6 +93,24 @@ func (_m *WebsocketConnection) WriteJSON(v interface{}) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(interface{}) error); ok {
 		r0 = rf(v)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// WriteMessage provides a mock function with given fields: messageType, message
+func (_m *WebsocketConnection) WriteMessage(messageType int, message []byte) error {
+	ret := _m.Called(messageType, message)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteMessage")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int, []byte) error); ok {
+		r0 = rf(messageType, message)
 	} else {
 		r0 = ret.Error(0)
 	}
