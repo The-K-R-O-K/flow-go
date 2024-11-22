@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -21,6 +22,7 @@ type Controller struct {
 	communicationChannel chan interface{}
 	dataProviders        *concurrentmap.Map[uuid.UUID, dp.DataProvider]
 	dataProvidersFactory dp.Factory
+	shutdownOnce         sync.Once
 }
 
 func NewWebSocketController(
@@ -36,6 +38,7 @@ func NewWebSocketController(
 		communicationChannel: make(chan interface{}, 10), //TODO: should it be buffered chan?
 		dataProviders:        concurrentmap.New[uuid.UUID, dp.DataProvider](),
 		dataProvidersFactory: factory,
+		shutdownOnce:         sync.Once{},
 	}
 }
 
@@ -51,17 +54,21 @@ func (c *Controller) HandleConnection(ctx context.Context) {
 // The communication channel is filled by data providers. Besides, the response limit tracker is involved in
 // write message regulation
 func (c *Controller) writeMessagesToClient(ctx context.Context) {
-	//TODO: can it run forever? maybe we should cancel the ctx in the reader routine
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-c.communicationChannel:
+		case msg, ok := <-c.communicationChannel:
+			if !ok {
+				c.shutdownConnection()
+				return
+			}
 			// TODO: handle 'response per second' limits
 
 			err := c.conn.WriteJSON(msg)
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					c.shutdownConnection()
 					return
 				}
 
@@ -74,31 +81,37 @@ func (c *Controller) writeMessagesToClient(ctx context.Context) {
 // readMessagesFromClient continuously reads messages from a client WebSocket connection,
 // processes each message, and handles actions based on the message type.
 func (c *Controller) readMessagesFromClient(ctx context.Context) {
-	defer c.shutdownConnection()
-
 	for {
 		select {
 		case <-ctx.Done():
-			c.logger.Info().Msg("context canceled, stopping read message loop")
 			return
 		default:
-			msg, err := c.readMessageFromConn()
+			msg, err := c.readMessageFromConn() //TODO: read is blocking, so there's no point in ctx.Done(), right?
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
+					c.shutdownConnection()
 					return
 				}
+
+				if err.Error() == "message is empty" {
+					continue
+				}
+
 				c.logger.Warn().Err(err).Msg("error reading message from client")
-				return
+				continue
 			}
 
 			baseMsg, validatedMsg, err := c.parseAndValidateMessage(msg)
 			if err != nil {
 				c.logger.Debug().Err(err).Msg("error parsing and validating client message")
+				c.shutdownConnection()
 				return
 			}
 
 			if err := c.handleAction(ctx, validatedMsg); err != nil {
 				c.logger.Warn().Err(err).Str("action", baseMsg.Action).Msg("error handling action")
+				c.shutdownConnection()
+				return
 			}
 		}
 	}
@@ -108,6 +121,10 @@ func (c *Controller) readMessageFromConn() (json.RawMessage, error) {
 	var message json.RawMessage
 	if err := c.conn.ReadJSON(&message); err != nil {
 		return nil, fmt.Errorf("error reading JSON from client: %w", err)
+	}
+
+	if message == nil {
+		return nil, fmt.Errorf("message is empty")
 	}
 
 	return message, nil
@@ -168,10 +185,18 @@ func (c *Controller) handleAction(ctx context.Context, message interface{}) erro
 func (c *Controller) handleSubscribe(ctx context.Context, msg models.SubscribeMessageRequest) {
 	dp := c.dataProvidersFactory.NewDataProvider(c.communicationChannel, msg.Topic)
 	c.dataProviders.Add(dp.ID(), dp)
-	dp.Run(ctx)
 
-	//TODO: return OK response to client
-	c.communicationChannel <- msg
+	// firstly, we want to write OK response to client and only after that we can start providing actual data
+	response := models.SubscribeMessageResponse{
+		BaseMessageResponse: models.BaseMessageResponse{
+			Success: true,
+		},
+		Topic: dp.Topic(),
+		ID:    dp.ID().String(),
+	}
+	c.communicationChannel <- response
+
+	dp.Run(ctx)
 }
 
 func (c *Controller) handleUnsubscribe(_ context.Context, msg models.UnsubscribeMessageRequest) {
@@ -195,20 +220,22 @@ func (c *Controller) handleListSubscriptions(ctx context.Context, msg models.Lis
 }
 
 func (c *Controller) shutdownConnection() {
-	defer close(c.communicationChannel)
-	defer func(conn WebsocketConnection) {
-		if err := c.conn.Close(); err != nil {
-			c.logger.Error().Err(err).Msg("error closing connection")
+	c.shutdownOnce.Do(func() {
+		defer close(c.communicationChannel)
+		defer func(conn WebsocketConnection) {
+			if err := c.conn.Close(); err != nil {
+				c.logger.Error().Err(err).Msg("error closing connection")
+			}
+		}(c.conn)
+
+		err := c.dataProviders.ForEach(func(_ uuid.UUID, dp dp.DataProvider) error {
+			dp.Close()
+			return nil
+		})
+		if err != nil {
+			c.logger.Error().Err(err).Msg("error closing data provider")
 		}
-	}(c.conn)
 
-	err := c.dataProviders.ForEach(func(_ uuid.UUID, dp dp.DataProvider) error {
-		dp.Close()
-		return nil
+		c.dataProviders.Clear()
 	})
-	if err != nil {
-		c.logger.Error().Err(err).Msg("error closing data provider")
-	}
-
-	c.dataProviders.Clear()
 }

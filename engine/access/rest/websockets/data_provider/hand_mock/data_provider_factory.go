@@ -1,4 +1,4 @@
-package mock
+package hand_mock
 
 import (
 	"github.com/onflow/flow-go/engine/access/rest/websockets/data_provider"

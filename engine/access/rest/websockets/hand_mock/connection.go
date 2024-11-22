@@ -1,4 +1,4 @@
-package mock
+package hand_mock
 
 import (
 	"errors"

@@ -1,4 +1,4 @@
-package mock
+package hand_mock
 
 type DataGenerator struct {
 	data []interface{}
