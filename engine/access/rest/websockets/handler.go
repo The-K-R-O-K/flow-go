@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/onflow/flow-go/engine/access/rest/common"
+	"github.com/onflow/flow-go/engine/access/rest/websockets/data_provider"
 	"github.com/onflow/flow-go/engine/access/state_stream"
 	"github.com/onflow/flow-go/engine/access/state_stream/backend"
 	"github.com/onflow/flow-go/model/flow"
@@ -65,6 +66,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	controller := NewWebSocketController(logger, h.websocketConfig, h.streamApi, h.streamConfig, conn)
-	controller.HandleConnection(context.TODO())
+	newConn := NewGorillaWebsocketConnection(conn)
+	factory := data_provider.NewDataProviderFactory(logger, h.streamApi, h.streamConfig)
+	controller := NewWebSocketController(logger, h.websocketConfig, factory, newConn)
+	controller.HandleConnection(context.Background())
 }
