@@ -17,6 +17,7 @@ import (
 	"github.com/onflow/flow-go/module"
 	"github.com/onflow/flow-go/module/component"
 	"github.com/onflow/flow-go/module/counters"
+	"github.com/onflow/flow-go/module/executiondatasync/requester"
 	"github.com/onflow/flow-go/module/irrecoverable"
 	"github.com/onflow/flow-go/module/jobqueue"
 	"github.com/onflow/flow-go/module/state_synchronization/indexer"
@@ -105,6 +106,8 @@ type Engine struct {
 	collectionExecutedMetric module.CollectionExecutedMetric
 
 	txErrorMessagesCore *tx_error_messages.TxErrorMessagesCore
+
+	requester *requester.Requester
 }
 
 var _ network.MessageProcessor = (*Engine)(nil)
@@ -128,6 +131,7 @@ func New(
 	finalizedProcessedHeight storage.ConsumerProgress,
 	lastFullBlockHeight *counters.PersistentStrictMonotonicCounter,
 	txErrorMessagesCore *tx_error_messages.TxErrorMessagesCore,
+	requester *requester.Requester,
 ) (*Engine, error) {
 	executionReceiptsRawQueue, err := fifoqueue.NewFifoQueue(defaultQueueCapacity)
 	if err != nil {
@@ -166,6 +170,7 @@ func New(
 		collectionExecutedMetric: collectionExecutedMetric,
 		finalizedBlockNotifier:   engine.NewNotifier(),
 		lastFullBlockHeight:      lastFullBlockHeight,
+		requester:                requester,
 
 		// queue / notifier for execution receipts
 		executionReceiptsNotifier: engine.NewNotifier(),
@@ -483,6 +488,14 @@ func (e *Engine) handleExecutionReceipt(_ flow.Identifier, r *flow.ExecutionRece
 	}
 
 	e.collectionExecutedMetric.ExecutionReceiptReceived(r)
+
+	// TODO: once the network API has been refactored to support multiple engines per channel,
+	// we should remove this and let the requester subscribe to the receipt broadcast channel
+	// itself.
+	if e.requester != nil {
+		e.requester.HandleReceipt(r)
+	}
+
 	return nil
 }
 

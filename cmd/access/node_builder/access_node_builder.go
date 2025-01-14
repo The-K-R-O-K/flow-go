@@ -78,6 +78,7 @@ import (
 	"github.com/onflow/flow-go/module/executiondatasync/execution_data"
 	execdatacache "github.com/onflow/flow-go/module/executiondatasync/execution_data/cache"
 	"github.com/onflow/flow-go/module/executiondatasync/pruner"
+	exedatarequester "github.com/onflow/flow-go/module/executiondatasync/requester"
 	edstorage "github.com/onflow/flow-go/module/executiondatasync/storage"
 	"github.com/onflow/flow-go/module/executiondatasync/tracker"
 	finalizer "github.com/onflow/flow-go/module/finalizer/consensus"
@@ -364,6 +365,7 @@ type FlowAccessNodeBuilder struct {
 
 	ExecNodeIdentitiesProvider *commonrpc.ExecutionNodeIdentitiesProvider
 	TxResultErrorMessagesCore  *tx_error_messages.TxErrorMessagesCore
+	ExecutionDataRequesterV2   *exedatarequester.Requester
 }
 
 func (builder *FlowAccessNodeBuilder) buildFollowerState() *FlowAccessNodeBuilder {
@@ -544,6 +546,70 @@ func (builder *FlowAccessNodeBuilder) BuildConsensusFollower() *FlowAccessNodeBu
 		buildFollowerCore().
 		buildFollowerEngine().
 		buildSyncEngine()
+
+	return builder
+}
+
+func (builder *FlowAccessNodeBuilder) BuildExecutionDataRequesterV2() *FlowAccessNodeBuilder {
+	var executionDataDatastore *badger.Datastore
+	var trackerStorage tracker.Storage
+
+	builder.Module("execution data datastore", func(node *cmd.NodeConfig) error {
+		datastoreDir := filepath.Join(builder.executionDataDir, "blobstore")
+		err := os.MkdirAll(datastoreDir, 0700)
+		if err != nil {
+			return err
+		}
+		dsOpts := &badger.DefaultOptions
+		executionDataDatastore, err = badger.NewDatastore(datastoreDir, dsOpts)
+		if err != nil {
+			return err
+		}
+		builder.ShutdownFunc(executionDataDatastore.Close)
+		return nil
+	}).
+		Component("execution data requester", func(node *cmd.NodeConfig) (module.ReadyDoneAware, error) {
+			bs, err := node.Network.RegisterBlobService(network.ExecutionDataService, executionDataDatastore)
+			if err != nil {
+				return nil, fmt.Errorf("failed to register blob service: %w", err)
+			}
+			sealed, err := node.State.Sealed().Head()
+			if err != nil {
+				return nil, fmt.Errorf("cannot get the sealed block: %w", err)
+			}
+
+			trackerDir := filepath.Join(builder.executionDataDir, "tracker")
+			trackerStorage, err = tracker.OpenStorage(
+				trackerDir,
+				sealed.Height,
+				node.Logger,
+				tracker.WithPruneCallback(func(c cid.Cid) error {
+					// TODO: use a proper context here
+					return bs.DeleteBlob(context.TODO(), c)
+				}),
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			var requesterMetrics module.ExecutionDataRequesterV2Metrics = metrics.NewNoopCollector()
+			if node.MetricsEnabled {
+				requesterMetrics = metrics.NewExecutionDataRequesterV2Collector()
+			}
+
+			builder.ExecutionDataRequesterV2, err = exedatarequester.NewRequester(
+				sealed.Height,
+				trackerStorage,
+				node.Storage.Blocks,
+				node.Storage.Results,
+				bs,
+				execution_data.DefaultSerializer,
+				builder.FollowerDistributor.FinalizationDistributor,
+				node.Logger,
+				requesterMetrics,
+			)
+			return builder.ExecutionDataRequesterV2, err
+		})
 
 	return builder
 }
@@ -2123,6 +2189,7 @@ func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
 				processedFinalizedBlockHeight,
 				lastFullBlockHeight,
 				builder.TxResultErrorMessagesCore,
+				builder.ExecutionDataRequesterV2,
 			)
 			if err != nil {
 				return nil, err
