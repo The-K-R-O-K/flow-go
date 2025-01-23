@@ -1802,20 +1802,9 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 			actualList = append(actualList, actual)
 		}
 
-<<<<<<< HEAD
-		if len(expectedENs) > maxNodesCnt {
+		if len(expectedENs) > commonrpc.MaxNodesCnt {
 			for _, actual := range actualList {
 				require.Contains(suite.T(), expectedENs, actual)
-=======
-		{
-			expectedENs := expectedENs.ToSkeleton()
-			if len(expectedENs) > commonrpc.MaxNodesCnt {
-				for _, actual := range actualList {
-					require.Contains(suite.T(), expectedENs, actual)
-				}
-			} else {
-				require.ElementsMatch(suite.T(), actualList, expectedENs)
->>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 			}
 		} else {
 			require.ElementsMatch(suite.T(), actualList, expectedENs)
@@ -1866,8 +1855,6 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		expectedList := fixedENs
 		testExecutionNodesForBlockID(nil, fixedENs, expectedList)
 	})
-<<<<<<< HEAD
-=======
 	// if only preferred ENs are specified, the ExecutionNodesForBlockID function should
 	// return the preferred ENs list
 	suite.Run("two preferred ENs with zero fixed EN", func() {
@@ -1876,7 +1863,6 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		expectedList := allExecutionNodes[0:commonrpc.MaxNodesCnt]
 		testExecutionNodesForBlockID(preferredENs, nil, expectedList)
 	})
->>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 	// if both are specified, the ExecutionNodesForBlockID function should
 	// return the preferred ENs list
 	suite.Run("four fixed ENs of which two are preferred ENs", func() {
@@ -1884,11 +1870,7 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		fixedENs := allExecutionNodes[0:5]
 		// mark the first two of the fixed ENs as preferred ENs
 		preferredENs := fixedENs[0:2]
-<<<<<<< HEAD
-		expectedList := preferredENs
-=======
 		expectedList := fixedENs[0:commonrpc.MaxNodesCnt]
->>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 		testExecutionNodesForBlockID(preferredENs, fixedENs, expectedList)
 	})
 	// if both are specified, but the preferred ENs don't match the ExecutorIDs in the ER,
@@ -1912,11 +1894,6 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		currentAttempt = 0
 		// mark the first two ENs as preferred
 		preferredENs := allExecutionNodes[0:2]
-<<<<<<< HEAD
-		expectedList := preferredENs
-		testExecutionNodesForBlockID(preferredENs, nil, expectedList)
-	})
-=======
 		expectedList := allExecutionNodes[0:commonrpc.MaxNodesCnt]
 		testExecutionNodesForBlockID(preferredENs, nil, expectedList)
 	})
@@ -1943,7 +1920,6 @@ func (suite *Suite) TestExecutionNodesForBlockID() {
 		require.ElementsMatch(suite.T(), chosenIDs, expectedOrder)
 		require.Equal(suite.T(), len(chosenIDs), commonrpc.MaxNodesCnt)
 	})
->>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 }
 
 // TestGetTransactionResultEventEncodingVersion tests the GetTransactionResult function with different event encoding versions.

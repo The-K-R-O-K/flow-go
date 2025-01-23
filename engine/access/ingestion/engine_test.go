@@ -130,7 +130,7 @@ func (s *Suite) SetupTest() {
 	require.NoError(s.T(), err)
 
 	eng, err := New(s.log, net, s.proto.state, s.me, s.request, s.blocks, s.headers, s.collections,
-		s.transactions, s.results, s.receipts, s.collectionExecutedMetric)
+		s.transactions, s.results, s.receipts, nil, s.collectionExecutedMetric, nil, nil, nil, nil)
 	require.NoError(s.T(), err)
 
 	s.blocks.On("GetLastFullBlockHeight").Once().Return(uint64(0), errors.New("do nothing"))

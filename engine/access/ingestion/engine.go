@@ -77,7 +77,7 @@ type Engine struct {
 	// Job queue
 	finalizedBlockConsumer *jobqueue.ComponentConsumer
 	finalizedBlockNotifier engine.Notifier
-	finalizedBlockQueue    engine.MessageStore
+	//finalizedBlockQueue    engine.MessageStore
 
 	// blockIDChan to fetch and store transaction result error messages
 	blockIDChan chan flow.Identifier
@@ -123,7 +123,6 @@ func New(
 	executionReceipts storage.ExecutionReceipts,
 	transactionResultErrorMessages storage.TransactionResultErrorMessages,
 	collectionExecutedMetric module.CollectionExecutedMetric,
-	processedHeight storage.ConsumerProgress,
 	backend *backend.Backend,
 	db *badger.DB,
 	preferredExecutionNodeIDs []string,
@@ -366,42 +365,42 @@ func (e *Engine) processTransactionResultErrorMessages(ctx irrecoverable.Signale
 
 }
 
-func (e *Engine) processFinalizedBlocks(ctx irrecoverable.SignalerContext, ready component.ReadyFunc) {
-	ready()
-	notifier := e.finalizedBlockNotifier.Channel()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-notifier:
-			_ = e.processAvailableFinalizedBlocks(ctx)
-		}
-	}
-}
-
-func (e *Engine) processAvailableFinalizedBlocks(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		msg, ok := e.finalizedBlockQueue.Get()
-		if !ok {
-			return nil
-		}
-
-		hb := msg.Payload.(*model.Block)
-		blockID := hb.BlockID
-
-		if err := e.processFinalizedBlock(blockID); err != nil {
-			e.log.Error().Err(err).Hex("block_id", blockID[:]).Msg("failed to process block")
-			continue
-		}
-	}
-}
+//func (e *Engine) processFinalizedBlocks(ctx irrecoverable.SignalerContext, ready component.ReadyFunc) {
+//	ready()
+//	notifier := e.finalizedBlockNotifier.Channel()
+//
+//	for {
+//		select {
+//		case <-ctx.Done():
+//			return
+//		case <-notifier:
+//			_ = e.processAvailableFinalizedBlocks(ctx)
+//		}
+//	}
+//}
+//
+//func (e *Engine) processAvailableFinalizedBlocks(ctx context.Context) error {
+//	for {
+//		select {
+//		case <-ctx.Done():
+//			return nil
+//		default:
+//		}
+//
+//		msg, ok := e.finalizedBlockQueue.Get()
+//		if !ok {
+//			return nil
+//		}
+//
+//		hb := msg.Payload.(*model.Block)
+//		blockID := hb.BlockID
+//
+//		if err := e.processFinalizedBlock(blockID); err != nil {
+//			e.log.Error().Err(err).Hex("block_id", blockID[:]).Msg("failed to process block")
+//			continue
+//		}
+//	}
+//}
 
 func (e *Engine) handleTransactionResultErrorMessages(ctx context.Context, blockID flow.Identifier) error {
 	execNodes, err := commonrpc.ExecutionNodesForBlockID(ctx, blockID, e.executionReceipts, e.state, e.log, e.preferredENIdentifiers, e.preferredENIdentifiers)
@@ -517,53 +516,53 @@ func (e *Engine) OnFinalizedBlock(hb *model.Block) {
 }
 
 // processBlock handles an incoming finalized block.
-func (e *Engine) processFinalizedBlock(blockID flow.Identifier) error {
-
-	// TODO: consider using storage.Index.ByBlockID, the index contains collection id and seals ID
-	block, err := e.blocks.ByID(blockID)
-	if err != nil {
-		return fmt.Errorf("failed to lookup block: %w", err)
-	}
-
-	// FIX: we can't index guarantees here, as we might have more than one block
-	// with the same collection as long as it is not finalized
-
-	// TODO: substitute an indexer module as layer between engine and storage
-
-	// index the block storage with each of the collection guarantee
-	err = e.blocks.IndexBlockForCollections(block.Header.ID(), flow.GetIDs(block.Payload.Guarantees))
-	if err != nil {
-		return fmt.Errorf("could not index block for collections: %w", err)
-	}
-
-	// loop through seals and index ID -> result ID
-	for _, seal := range block.Payload.Seals {
-		err := e.executionResults.Index(seal.BlockID, seal.ResultID)
-		if err != nil {
-			return fmt.Errorf("could not index block for execution result: %w", err)
-		}
-	}
-
-	// skip requesting collections, if this block is below the last full block height
-	// this means that either we have already received these collections, or the block
-	// may contain unverifiable guarantees (in case this node has just joined the network)
-	lastFullBlockHeight, err := e.blocks.GetLastFullBlockHeight()
-	if err != nil {
-		return fmt.Errorf("could not get last full block height: %w", err)
-	}
-
-	if block.Header.Height <= lastFullBlockHeight {
-		e.log.Info().Msgf("skipping requesting collections for finalized block below last full block height (%d<=%d)", block.Header.Height, lastFullBlockHeight)
-		return nil
-	}
-
-	// queue requesting each of the collections from the collection node
-	e.requestCollectionsInFinalizedBlock(block.Payload.Guarantees)
-
-	e.collectionExecutedMetric.BlockFinalized(block)
-
-	return nil
-}
+//func (e *Engine) processFinalizedBlock(blockID flow.Identifier) error {
+//
+//	// TODO: consider using storage.Index.ByBlockID, the index contains collection id and seals ID
+//	block, err := e.blocks.ByID(blockID)
+//	if err != nil {
+//		return fmt.Errorf("failed to lookup block: %w", err)
+//	}
+//
+//	// FIX: we can't index guarantees here, as we might have more than one block
+//	// with the same collection as long as it is not finalized
+//
+//	// TODO: substitute an indexer module as layer between engine and storage
+//
+//	// index the block storage with each of the collection guarantee
+//	err = e.blocks.IndexBlockForCollections(block.Header.ID(), flow.GetIDs(block.Payload.Guarantees))
+//	if err != nil {
+//		return fmt.Errorf("could not index block for collections: %w", err)
+//	}
+//
+//	// loop through seals and index ID -> result ID
+//	for _, seal := range block.Payload.Seals {
+//		err := e.executionResults.Index(seal.BlockID, seal.ResultID)
+//		if err != nil {
+//			return fmt.Errorf("could not index block for execution result: %w", err)
+//		}
+//	}
+//
+//	// skip requesting collections, if this block is below the last full block height
+//	// this means that either we have already received these collections, or the block
+//	// may contain unverifiable guarantees (in case this node has just joined the network)
+//	lastFullBlockHeight, err := e.blocks.GetLastFullBlockHeight()
+//	if err != nil {
+//		return fmt.Errorf("could not get last full block height: %w", err)
+//	}
+//
+//	if block.Header.Height <= lastFullBlockHeight {
+//		e.log.Info().Msgf("skipping requesting collections for finalized block below last full block height (%d<=%d)", block.Header.Height, lastFullBlockHeight)
+//		return nil
+//	}
+//
+//	// queue requesting each of the collections from the collection node
+//	e.requestCollectionsInFinalizedBlock(block.Payload.Guarantees)
+//
+//	e.collectionExecutedMetric.BlockFinalized(block)
+//
+//	return nil
+//}
 
 func (e *Engine) handleExecutionReceipt(_ flow.Identifier, r *flow.ExecutionReceipt) error {
 	// persist the execution receipt locally, storing will also index the receipt

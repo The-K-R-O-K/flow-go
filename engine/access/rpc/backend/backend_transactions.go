@@ -634,7 +634,16 @@ func (b *backendTransactions) GetSystemTransactionResult(ctx context.Context, bl
 	req := &execproto.GetTransactionsByBlockIDRequest{
 		BlockId: blockID[:],
 	}
-	execNodes, err := executionNodesForBlockID(ctx, blockID, b.executionReceipts, b.state, b.log)
+
+	execNodes, err := commonrpc.ExecutionNodesForBlockID(
+		ctx,
+		blockID,
+		b.executionReceipts,
+		b.state,
+		b.log,
+		preferredENIdentifiers,
+		fixedENIdentifiers,
+	)
 	if err != nil {
 		if IsInsufficientExecutionReceipts(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -1306,14 +1315,14 @@ func (b *backendTransactions) GetTransactionErrorMessagesFromAnyEN(
 	ctx context.Context,
 	execNodes flow.IdentityList,
 	req *execproto.GetTransactionErrorMessagesByBlockIDRequest,
-) ([]*execproto.GetTransactionErrorMessagesResponse_Result, *flow.IdentitySkeleton, error) {
+) ([]*execproto.GetTransactionErrorMessagesResponse_Result, *flow.Identity, error) {
 	// if we were passed 0 execution nodes add a specific error
 	if len(execNodes) == 0 {
 		return nil, nil, errors.New("zero execution nodes")
 	}
 
 	var resp *execproto.GetTransactionErrorMessagesResponse
-	var execNode *flow.IdentitySkeleton
+	var execNode *flow.Identity
 
 	errToReturn := b.nodeCommunicator.CallAvailableNode(
 		execNodes,

@@ -674,12 +674,6 @@ func (suite *Suite) TestGetSealedTransaction() {
 		require.NoError(suite.T(), err)
 
 		// create the ingest engine
-<<<<<<< HEAD
-		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
-			transactions, results, receipts, collectionExecutedMetric)
-=======
-		processedHeight := bstorage.NewConsumerProgress(db, module.ConsumeProgressIngestionEngineBlockHeight)
-
 		ingestEng, err := ingestion.New(
 			suite.log,
 			suite.net,
@@ -694,14 +688,11 @@ func (suite *Suite) TestGetSealedTransaction() {
 			receipts,
 			txResultErrorMessages,
 			collectionExecutedMetric,
-			processedHeight,
-			lastFullBlockHeight,
 			bnd,
 			db,
 			enNodeIDs.Strings(),
 			nil,
 		)
->>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 		require.NoError(suite.T(), err)
 
 		// 1. Assume that follower engine updated the block storage and the protocol state. The block is reported as sealed
@@ -852,14 +843,10 @@ func (suite *Suite) TestGetTransactionResult() {
 		require.NoError(suite.T(), err)
 
 		// create the ingest engine
-		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
-<<<<<<< HEAD
-			transactions, results, receipts, collectionExecutedMetric)
-=======
-			transactions, results, receipts, txResultErrorMessages, collectionExecutedMetric, processedHeight, lastFullBlockHeight, bnd, db, enNodeIDs.Strings(),
-			nil,
+		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers,
+			collections, transactions, results, receipts, txResultErrorMessages, collectionExecutedMetric, bnd, db,
+			enNodeIDs.Strings(), nil,
 		)
->>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
 		require.NoError(suite.T(), err)
 
 		background, cancel := context.WithCancel(context.Background())
@@ -1080,14 +1067,9 @@ func (suite *Suite) TestExecuteScript() {
 		suite.net.On("Register", channels.ReceiveReceipts, mock.Anything).Return(conduit, nil).
 			Once()
 		// create the ingest engine
-		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers, collections,
-<<<<<<< HEAD
-			transactions, results, receipts, collectionExecutedMetric)
-=======
-			transactions, results, receipts, txResultErrorMessages, collectionExecutedMetric, processedHeight, lastFullBlockHeight, suite.backend, db,
-			enNodeIDs.Strings(),
-			nil)
->>>>>>> 5222dcaaca... Added fetching and storing transaction result error messages, refactored executionNodesForBlockID
+		ingestEng, err := ingestion.New(suite.log, suite.net, suite.state, suite.me, suite.request, all.Blocks, all.Headers,
+			collections, transactions, results, receipts, txResultErrorMessages, collectionExecutedMetric, suite.backend, db,
+			enNodeIDs.Strings(), nil)
 		require.NoError(suite.T(), err)
 
 		// create another block as a predecessor of the block created earlier

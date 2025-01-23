@@ -1720,7 +1720,6 @@ func (builder *FlowAccessNodeBuilder) Build() (cmd.Node, error) {
 				node.Storage.Receipts,
 				node.Storage.TransactionResultErrorMessages,
 				builder.collectionExecutedMetric,
-				processedFinalizedBlockHeight,
 				builder.nodeBackend,
 				node.DB,
 				builder.rpcConf.BackendConfig.PreferredExecutionNodeIDs,
