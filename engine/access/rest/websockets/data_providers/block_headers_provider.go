@@ -64,20 +64,21 @@ func NewBlockHeadersDataProvider(
 // Expected errors during normal operations:
 //   - context.Canceled: if the operation is canceled, during an unsubscribe action.
 func (p *BlockHeadersDataProvider) Run() error {
-	return subscription.HandleSubscription(
+	return run(
+		p.closedChan,
 		p.subscription,
-		subscription.HandleResponse(p.send, func(h *flow.Header) (interface{}, error) {
+		func(h *flow.Header) error {
 			var header commonmodels.BlockHeader
 			header.Build(h)
 
-			response := models.BaseDataProvidersResponse{
+			p.send <- &models.BaseDataProvidersResponse{
 				SubscriptionID: p.ID(),
 				Topic:          p.Topic(),
 				Payload:        &header,
 			}
 
-			return &response, nil
-		}),
+			return nil
+		},
 	)
 }
 

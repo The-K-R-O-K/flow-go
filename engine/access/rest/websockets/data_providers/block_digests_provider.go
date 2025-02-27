@@ -63,18 +63,20 @@ func NewBlockDigestsDataProvider(
 // Expected errors during normal operations:
 //   - context.Canceled: if the operation is canceled, during an unsubscribe action.
 func (p *BlockDigestsDataProvider) Run() error {
-	return subscription.HandleSubscription(
+	return run(
+		p.closedChan,
 		p.subscription,
-		subscription.HandleResponse(p.send, func(b *flow.BlockDigest) (interface{}, error) {
+		func(b *flow.BlockDigest) error {
 			blockDigest := models.NewBlockDigest(b)
-			response := models.BaseDataProvidersResponse{
+
+			p.send <- &models.BaseDataProvidersResponse{
 				SubscriptionID: p.ID(),
 				Topic:          p.Topic(),
 				Payload:        &blockDigest,
 			}
 
-			return &response, nil
-		}),
+			return nil
+		},
 	)
 }
 

@@ -78,25 +78,26 @@ func NewBlocksDataProvider(
 // Expected errors during normal operations:
 //   - context.Canceled: if the operation is canceled, during an unsubscribe action.
 func (p *BlocksDataProvider) Run() error {
-	return subscription.HandleSubscription(
+	return run(
+		p.closedChan,
 		p.subscription,
-		subscription.HandleResponse(p.send, func(b *flow.Block) (interface{}, error) {
-			var block commonmodels.Block
+		func(block *flow.Block) error {
+			var blockResponse commonmodels.Block
 
 			expandPayload := map[string]bool{commonmodels.ExpandableFieldPayload: true}
-			err := block.Build(b, nil, p.linkGenerator, p.arguments.BlockStatus, expandPayload)
+			err := blockResponse.Build(block, nil, p.linkGenerator, p.arguments.BlockStatus, expandPayload)
 			if err != nil {
-				return nil, fmt.Errorf("failed to build block response :%w", err)
+				return fmt.Errorf("failed to build block response :%w", err)
 			}
 
-			response := models.BaseDataProvidersResponse{
+			p.send <- &models.BaseDataProvidersResponse{
 				SubscriptionID: p.ID(),
 				Topic:          p.Topic(),
 				Payload:        &block,
 			}
 
-			return &response, nil
-		}),
+			return nil
+		},
 	)
 }
 
