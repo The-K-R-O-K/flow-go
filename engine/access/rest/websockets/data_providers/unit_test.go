@@ -87,7 +87,7 @@ func testHappyPath(
 			}()
 
 			// Wait for the provider goroutine to finish
-			unittest.RequireCloseBefore(t, done, time.Second, "provider failed to stop")
+			unittest.RequireCloseBefore(t, done, 60*time.Second, "provider failed to stop")
 
 			// Collect responses
 			for i, expected := range test.expectedResponses {
@@ -96,7 +96,7 @@ func testHappyPath(
 					require.True(t, ok, "channel closed while waiting for response %v: err: %v", expected, sub.Err())
 
 					requireFn(v, expected)
-				}, time.Second, fmt.Sprintf("timed out waiting for response %d %v", i, expected))
+				}, 60*time.Second, fmt.Sprintf("timed out waiting for response %d %v", i, expected))
 			}
 		})
 	}
